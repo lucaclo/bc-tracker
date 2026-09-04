@@ -1,0 +1,64 @@
+.wso-filled {
+  outline: 2px solid #1f9d55 !important;
+  outline-offset: 1px;
+  background-color: rgba(31, 157, 85, 0.06) !important;
+}
+
+/* Auto-matched but not an exact match (e.g. a fuzzy dropdown/select option pick) —
+   deliberately a different hue from both the confident green and the dashed-amber
+   "needs your input" flag, so it reads as its own "worth a second look" category. */
+.wso-filled-medium {
+  outline: 2px solid #2563eb !important;
+  outline-offset: 1px;
+  background-color: rgba(37, 99, 235, 0.07) !important;
+}
+
+.wso-flagged {
+  outline: 2px dashed #d97706 !important;
+  outline-offset: 1px;
+  background-color: rgba(217, 119, 6, 0.07) !important;
+}
+
+/* WSO filled this, then its own post-fill audit found a specific reason to doubt it (a
+   value that didn't stick, or data that doesn't cohere with a single saved entry) — solid
+   red so it reads as more urgent than the "worth a second look" blue, and clearly distinct
+   from the dashed-amber "never had data for this" flag. */
+.wso-verify-failed {
+  outline: 3px solid #dc2626 !important;
+  outline-offset: 1px;
+  background-color: rgba(220, 38, 38, 0.08) !important;
+}
+
+.wso-flash {
+  animation: wso-flash-anim 1.1s ease-in-out;
+}
+
+@keyframes wso-flash-anim {
+  0%, 100% { box-shadow: none; }
+  30% { box-shadow: 0 0 0 4px rgba(217, 119, 6, 0.45); }
+}
+
+#wso-toast {
+  position: fixed;
+  bottom: 22px;
+  right: 22px;
+  z-index: 2147483647;
+  background: #111827;
+  color: #fff;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font: 500 12.5px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  max-width: 280px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  pointer-events: none;
+}
+
+#wso-toast.wso-toast-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+#wso-toast.wso-toast-error { background: #b91c1c; }

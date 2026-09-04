@@ -1,0 +1,52 @@
+{
+  "manifest_version": 3,
+  "name": "B.C Tracker — Internship Application Autofill",
+  "version": "1.2.0",
+  "description": "Reads your WSO Academy application tracker, autofills job application forms from your saved profile, and logs applications to your local B.C Tracker app. Never submits anything for you.",
+  "permissions": ["storage", "scripting", "activeTab", "tabs", "sidePanel"],
+  "host_permissions": [
+    "http://localhost:5055/*",
+    "http://127.0.0.1:5055/*",
+    "*://*.wallstreetoasis.com/*",
+    "*://*.the-trackr.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "B.C Tracker — open side panel"
+  },
+  "side_panel": {
+    "default_path": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "*://*.wallstreetoasis.com/academy/dashboard/tracker*",
+        "*://*.the-trackr.com/*"
+      ],
+      "js": ["content/tracker-reader.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["<all_urls>"],
+      "exclude_matches": [
+        "*://*.wallstreetoasis.com/*",
+        "*://*.the-trackr.com/*",
+        "http://localhost/*",
+        "http://127.0.0.1/*"
+      ],
+      "js": [
+        "lib/fieldMap.js",
+        "lib/comboboxFill.js",
+        "lib/fillVerifier.js",
+        "lib/siteMappers/workday.js",
+        "lib/siteMappers/greenhouse.js",
+        "lib/siteMappers/lever.js",
+        "content/autofill.js"
+      ],
+      "css": ["content/autofill.css"],
+      "run_at": "document_idle"
+    }
+  ]
+}

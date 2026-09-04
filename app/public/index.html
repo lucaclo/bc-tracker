@@ -1,0 +1,271 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>B.C Tracker — Internship Tracker</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <h1>B.C <span>Tracker</span></h1>
+    <nav class="tabs">
+      <button class="tab-btn active" data-tab="applications">Applications</button>
+      <button class="tab-btn" data-tab="profile">Profile</button>
+      <button class="tab-btn" data-tab="insights">Autofill insights</button>
+    </nav>
+  </header>
+
+  <main>
+    <section id="tab-applications" class="tab-panel active">
+      <div class="toolbar">
+        <input id="app-search" type="search" placeholder="Search company, role, notes…" />
+        <select id="app-status-filter">
+          <option value="">All statuses</option>
+        </select>
+        <div class="spacer"></div>
+        <button id="add-app-btn" class="btn">+ Add application</button>
+        <a class="btn btn-secondary" href="/api/applications/export.csv">Export CSV</a>
+        <a class="btn btn-secondary" href="/api/applications/export.xlsx">Export XLSX</a>
+      </div>
+      <div class="table-wrap">
+        <table id="apps-table">
+          <thead>
+            <tr>
+              <th data-sort="company">Company</th>
+              <th data-sort="role">Role / Program</th>
+              <th data-sort="region">Region</th>
+              <th data-sort="industry">Industry</th>
+              <th data-sort="status">Status</th>
+              <th data-sort="dateApplied">Date Applied</th>
+              <th data-sort="deadline">Deadline</th>
+              <th data-sort="source">Source</th>
+              <th>Link</th>
+              <th>Notes</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="apps-tbody"></tbody>
+        </table>
+        <p id="apps-empty" class="empty-state" hidden>No applications logged yet.</p>
+      </div>
+    </section>
+
+    <section id="tab-profile" class="tab-panel">
+      <form id="profile-form">
+        <fieldset>
+          <legend>Personal</legend>
+          <div class="grid">
+            <label>Legal first name <input name="legalFirstName" /></label>
+            <label>Legal middle name <input name="legalMiddleName" /></label>
+            <label>Legal last name <input name="legalLastName" /></label>
+            <label>Preferred name <input name="preferredName" /></label>
+            <label>Date of birth <input type="date" name="dateOfBirth" /></label>
+            <label>Email <input type="email" name="email" /></label>
+            <label>Sign-up email (optional)
+              <input type="email" name="signupEmail" placeholder="Leave blank to just use Email above" />
+            </label>
+            <label>Phone country code <input name="phoneCountryCode" placeholder="+44" /></label>
+            <label>Phone number <input name="phoneNumber" /></label>
+          </div>
+          <p class="hint">
+            Sign-up email is used automatically only on pages that also have a password
+            field (i.e. account creation/login), so your main Email above is never
+            accidentally overridden on a normal application form. Passwords themselves are
+            never stored or auto-filled — those always need you, on purpose.
+          </p>
+        </fieldset>
+
+        <fieldset>
+          <legend>Address</legend>
+          <div class="grid">
+            <label>Address line 1 <input name="addressLine1" /></label>
+            <label>Address line 2 <input name="addressLine2" /></label>
+            <label>City <input name="city" /></label>
+            <label>Postcode <input name="postcode" /></label>
+            <label>Country <input name="country" /></label>
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Links</legend>
+          <div class="grid">
+            <label>LinkedIn URL <input name="linkedinUrl" /></label>
+            <label>Portfolio / website URL <input name="portfolioUrl" /></label>
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Education</legend>
+          <p class="hint">
+            Add both school and university — most forms list most recent/highest first
+            (university before school), and fill in that order.
+          </p>
+          <div id="education-list"></div>
+          <button type="button" id="add-education-btn" class="btn btn-secondary">+ Add education</button>
+        </fieldset>
+
+        <fieldset>
+          <legend>Work authorization</legend>
+          <div class="grid">
+            <label>UK right to work
+              <select name="ukRightToWork">
+                <option value="">—</option>
+                <option value="Yes">Yes</option>
+                <option value="No">No</option>
+              </select>
+            </label>
+            <label>UK visa type (if any) <input name="ukVisaType" /></label>
+            <label>HK right to work
+              <select name="hkRightToWork">
+                <option value="">—</option>
+                <option value="Yes">Yes</option>
+                <option value="No">No</option>
+              </select>
+            </label>
+            <label>HK visa type (if any) <input name="hkVisaType" /></label>
+            <label>Require sponsorship
+              <select name="sponsorshipNeeded">
+                <option value="">—</option>
+                <option value="Yes">Yes</option>
+                <option value="No">No</option>
+              </select>
+            </label>
+            <label>Availability start date <input type="date" name="availabilityStartDate" /></label>
+            <label>Notice period <input name="noticePeriod" /></label>
+            <label>How did you hear about us (default answer) <input name="howHeardAboutUs" /></label>
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Work experience</legend>
+          <p class="hint">
+            Listed most recent first. Applications with multiple "Work Experience" blocks
+            get filled in this order — your 1st entry here fills their 1st block, and so on.
+          </p>
+          <div id="experience-list"></div>
+          <button type="button" id="add-experience-btn" class="btn btn-secondary">+ Add work experience</button>
+        </fieldset>
+
+        <fieldset>
+          <legend>Skills</legend>
+          <p class="hint">
+            Many application forms use a search/autocomplete "add skills" widget rather
+            than a plain text box — the extension tries to add each one for real by typing
+            and clicking the matching option, and flags whichever ones it can't confidently
+            match so you can add those manually.
+          </p>
+          <ul id="skills-list" class="doc-list"></ul>
+          <div class="upload-row">
+            <input id="skill-input" placeholder="e.g. Financial Modeling" />
+            <button type="button" id="add-skill-btn" class="btn btn-secondary">+ Add skill</button>
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Languages</legend>
+          <p class="hint">
+            Listed in the order forms usually expect (most forms list your strongest
+            language first). Levels are free text — type them to match how a given form's
+            dropdown phrases them (e.g. "Native", "Fluent", "Near Fluent", "Basic") when you
+            know it; otherwise use whatever's natural and it'll fill an exact match or get
+            flagged for you to pick manually.
+          </p>
+          <div id="languages-list"></div>
+          <button type="button" id="add-language-btn" class="btn btn-secondary">+ Add language</button>
+        </fieldset>
+
+        <fieldset>
+          <legend>Documents</legend>
+          <p class="hint">
+            Uploaded documents are saved locally in <code>app/data/cv/</code>. On application
+            forms, the browser can't auto-attach a file for security reasons — the extension will
+            highlight the upload field and open the picker for you; it'll already be pointed near
+            this folder.
+          </p>
+          <div class="doc-upload">
+            <strong>CVs / résumés</strong>
+            <ul id="cv-list" class="doc-list"></ul>
+            <div class="upload-row">
+              <input id="cv-name" placeholder="Label, e.g. General CV" />
+              <input id="cv-file" type="file" accept=".pdf,.doc,.docx" />
+              <button type="button" id="cv-upload-btn" class="btn btn-secondary">Upload CV</button>
+            </div>
+          </div>
+          <div class="doc-upload">
+            <strong>Cover letters</strong>
+            <ul id="cover-list" class="doc-list"></ul>
+            <div class="upload-row">
+              <input id="cover-name" placeholder="Label, e.g. General cover letter" />
+              <input id="cover-file" type="file" accept=".pdf,.doc,.docx" />
+              <button type="button" id="cover-upload-btn" class="btn btn-secondary">Upload cover letter</button>
+            </div>
+          </div>
+        </fieldset>
+
+        <div class="save-row">
+          <button type="submit" class="btn">Save profile</button>
+          <span id="profile-save-msg" class="save-msg"></span>
+        </div>
+      </form>
+    </section>
+
+    <section id="tab-insights" class="tab-panel">
+      <p class="hint">
+        Every field the extension had to flag for manual entry across every application,
+        aggregated by wording — the labels at the top are the best candidates to add to
+        <code>extension/lib/fieldMap.js</code>'s <code>FIELD_KEYWORDS</code> (or a site
+        mapper) next.
+      </p>
+      <div class="table-wrap">
+        <table id="insights-table">
+          <thead>
+            <tr>
+              <th>Label</th>
+              <th>Times flagged</th>
+              <th>Last seen</th>
+            </tr>
+          </thead>
+          <tbody id="insights-tbody"></tbody>
+        </table>
+        <p id="insights-empty" class="empty-state" hidden>No flagged fields recorded yet.</p>
+      </div>
+    </section>
+  </main>
+
+  <dialog id="add-app-dialog">
+    <form id="add-app-form" method="dialog">
+      <h2>Add application</h2>
+      <div class="grid">
+        <label>Company <input name="company" required /></label>
+        <label>Role / Program <input name="role" required /></label>
+        <label>Industry <input name="industry" /></label>
+        <label>Region <input name="region" /></label>
+        <label>Group / Division <input name="groupDivision" /></label>
+        <label>Role type <input name="roleType" placeholder="Internship, Full Time…" /></label>
+        <label>Status
+          <select name="status">
+            <option>Bookmarked</option>
+            <option>Applying</option>
+            <option selected>Applied</option>
+            <option>Interviewing</option>
+            <option>Offer</option>
+            <option>Rejected</option>
+          </select>
+        </label>
+        <label>Date applied <input type="date" name="dateApplied" /></label>
+        <label>Deadline <input type="date" name="deadline" /></label>
+        <label>Source <input name="source" placeholder="WSO Tracker, Manual…" /></label>
+        <label class="span-2">Application link <input name="applicationLink" /></label>
+        <label>CV version used <input name="cvVersionUsed" /></label>
+        <label class="span-2">Notes <textarea name="notes" rows="3"></textarea></label>
+      </div>
+      <div class="dialog-actions">
+        <button type="button" id="cancel-add-app" class="btn btn-secondary">Cancel</button>
+        <button type="submit" id="save-add-app" class="btn">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="js/app.js"></script>
+</body>
+</html>

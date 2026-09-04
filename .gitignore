@@ -1,0 +1,7 @@
+node_modules/
+app/data/*.json
+app/data/backups/
+app/data/cv/*
+!app/data/cv/.gitkeep
+*.xlsx
+.DS_Store
