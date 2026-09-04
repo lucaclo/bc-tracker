@@ -73,7 +73,10 @@ function renderApplications() {
       <td>${escapeHtml(app.source)}</td>
       <td class="link-cell">${linkHtml}</td>
       <td class="notes-cell" title="${escapeAttr(app.notes)}">${escapeHtml(app.notes)}</td>
-      <td><button class="row-delete" data-id="${app.id}">Delete</button></td>
+      <td class="row-actions">
+        <button class="row-edit" data-id="${app.id}">Edit</button>
+        <button class="row-delete" data-id="${app.id}">Delete</button>
+      </td>
     `;
 
     const statusCell = tr.children[4];
@@ -93,6 +96,7 @@ function renderApplications() {
     statusCell.appendChild(select);
 
     tr.querySelector('.row-delete').addEventListener('click', () => deleteApplication(app.id));
+    tr.querySelector('.row-edit').addEventListener('click', () => openEditDialog(app));
 
     tbody.appendChild(tr);
   }
@@ -127,19 +131,45 @@ document.querySelectorAll('#apps-table th[data-sort]').forEach((th) => {
 searchInput.addEventListener('input', renderApplications);
 statusFilter.addEventListener('change', renderApplications);
 
-// ---- Add application dialog ----
+// ---- Add / edit application dialog ----
+// The same dialog and form serve both: `editingId` is null while adding a brand-new
+// entry, or the id of the row being edited — the submit handler branches on that alone
+// rather than duplicating the dialog markup.
 const addDialog = document.getElementById('add-app-dialog');
 const addForm = document.getElementById('add-app-form');
+const dialogTitle = document.getElementById('app-dialog-title');
+let editingId = null;
 
 document.getElementById('add-app-btn').addEventListener('click', () => {
+  editingId = null;
+  dialogTitle.textContent = 'Add application';
   addForm.reset();
   addDialog.showModal();
 });
 document.getElementById('cancel-add-app').addEventListener('click', () => addDialog.close());
 
+function openEditDialog(app) {
+  editingId = app.id;
+  dialogTitle.textContent = 'Edit application';
+  addForm.reset();
+  for (const [key, value] of Object.entries(app)) {
+    const field = addForm.elements[key];
+    if (field && typeof value === 'string') field.value = value;
+  }
+  addDialog.showModal();
+}
+
 addForm.addEventListener('submit', async (e) => {
   const formData = new FormData(addForm);
   const body = Object.fromEntries(formData.entries());
+
+  if (editingId) {
+    await updateApplication(editingId, body);
+    editingId = null;
+    renderApplications();
+    return;
+  }
+
   const res = await fetch('/api/applications', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

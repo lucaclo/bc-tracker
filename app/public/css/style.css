@@ -150,13 +150,22 @@ td.notes-cell, td.link-cell {
 .status-Offer { background: #d1fae5; color: #047857; }
 .status-Rejected { background: #fee2e2; color: #b91c1c; }
 
+.row-actions {
+  display: flex;
+  gap: 10px;
+  white-space: nowrap;
+}
+
+.row-edit,
 .row-delete {
   background: none;
   border: none;
   color: var(--muted);
   cursor: pointer;
   font-size: 13px;
+  padding: 0;
 }
+.row-edit:hover { color: var(--accent, #0d9488); }
 .row-delete:hover { color: var(--red); }
 
 .empty-state {
