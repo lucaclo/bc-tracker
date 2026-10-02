@@ -264,6 +264,7 @@ input, select, textarea {
 
 .save-row { display: flex; align-items: center; gap: 12px; }
 .save-msg { color: var(--green); font-size: 13px; }
+.save-msg.save-msg-error { color: var(--red); }
 
 dialog {
   border: none;

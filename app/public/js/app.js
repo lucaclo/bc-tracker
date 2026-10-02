@@ -89,9 +89,17 @@ function renderApplications() {
       if (s === app.status) opt.selected = true;
       select.appendChild(opt);
     }
+    select.dataset.saved = app.status;
     select.addEventListener('change', async () => {
-      await updateApplication(app.id, { status: select.value });
-      select.className = `status-pill status-${select.value}`;
+      try {
+        await updateApplication(app.id, { status: select.value });
+        select.className = `status-pill status-${select.value}`;
+        select.dataset.saved = select.value;
+      } catch (err) {
+        console.error('[BC] status update failed', err);
+        select.value = select.dataset.saved;
+        alert('Could not save the status change — is the app still running?');
+      }
     });
     statusCell.appendChild(select);
 
@@ -108,6 +116,7 @@ async function updateApplication(id, patch) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(patch)
   });
+  if (!res.ok) throw new Error(`Server responded ${res.status}`);
   const updated = await res.json();
   applications = applications.map((a) => (a.id === id ? updated : a));
 }
@@ -138,12 +147,14 @@ statusFilter.addEventListener('change', renderApplications);
 const addDialog = document.getElementById('add-app-dialog');
 const addForm = document.getElementById('add-app-form');
 const dialogTitle = document.getElementById('app-dialog-title');
+const addDialogMsg = document.getElementById('add-app-msg');
 let editingId = null;
 
 document.getElementById('add-app-btn').addEventListener('click', () => {
   editingId = null;
   dialogTitle.textContent = 'Add application';
   addForm.reset();
+  addDialogMsg.textContent = '';
   addDialog.showModal();
 });
 document.getElementById('cancel-add-app').addEventListener('click', () => addDialog.close());
@@ -152,6 +163,7 @@ function openEditDialog(app) {
   editingId = app.id;
   dialogTitle.textContent = 'Edit application';
   addForm.reset();
+  addDialogMsg.textContent = '';
   for (const [key, value] of Object.entries(app)) {
     const field = addForm.elements[key];
     if (field && typeof value === 'string') field.value = value;
@@ -159,25 +171,36 @@ function openEditDialog(app) {
   addDialog.showModal();
 }
 
+// preventDefault overrides the form's native method="dialog" auto-close so a failed save
+// (app not running, a server error) can keep the dialog open with your entered data intact
+// and a visible error — instead of the dialog silently closing as if it worked while
+// nothing was actually written to disk.
 addForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
   const formData = new FormData(addForm);
   const body = Object.fromEntries(formData.entries());
 
-  if (editingId) {
-    await updateApplication(editingId, body);
-    editingId = null;
+  try {
+    if (editingId) {
+      await updateApplication(editingId, body);
+      editingId = null;
+    } else {
+      const res = await fetch('/api/applications', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      if (!res.ok) throw new Error(`Server responded ${res.status}`);
+      const created = await res.json();
+      applications.unshift(created);
+    }
     renderApplications();
-    return;
+    addDialog.close();
+  } catch (err) {
+    console.error('[BC] application save failed', err);
+    addDialogMsg.textContent = 'Could not save — is the app still running? Your entries above are unchanged, try again.';
+    addDialogMsg.classList.add('save-msg-error');
   }
-
-  const res = await fetch('/api/applications', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body)
-  });
-  const created = await res.json();
-  applications.unshift(created);
-  renderApplications();
 });
 
 // ---- Profile ----
@@ -410,6 +433,7 @@ function collectExperienceFromForm() {
 
 profileForm.addEventListener('submit', async (e) => {
   e.preventDefault();
+  const msg = document.getElementById('profile-save-msg');
   const formData = new FormData(profileForm);
   const body = {
     ...currentProfile,
@@ -418,18 +442,32 @@ profileForm.addEventListener('submit', async (e) => {
     languages: collectLanguagesFromForm(),
     education: collectEducationFromForm()
   };
-  const res = await fetch('/api/profile', {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body)
-  });
-  currentProfile = await res.json();
-  renderExperienceList(currentProfile.workExperience || []);
-  renderLanguageList(currentProfile.languages || []);
-  renderEducationList(currentProfile.education || []);
-  const msg = document.getElementById('profile-save-msg');
-  msg.textContent = 'Saved';
-  setTimeout(() => (msg.textContent = ''), 2000);
+  // A silent failure here (app not running, a network hiccup, a server error) would
+  // otherwise look EXACTLY like the just-typed data being "deleted": the form still shows
+  // it, nothing visibly goes wrong, but nothing was actually written to disk — so the
+  // next time the app is opened, the profile is back to whatever it was before. Always
+  // show something, and never overwrite the form with a blank/error response.
+  try {
+    const res = await fetch('/api/profile', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    if (!res.ok) throw new Error(`Server responded ${res.status}`);
+    currentProfile = await res.json();
+    renderExperienceList(currentProfile.workExperience || []);
+    renderLanguageList(currentProfile.languages || []);
+    renderEducationList(currentProfile.education || []);
+    msg.textContent = 'Saved';
+    msg.classList.remove('save-msg-error');
+    setTimeout(() => (msg.textContent = ''), 2000);
+  } catch (err) {
+    console.error('[BC] profile save failed', err);
+    msg.textContent = 'Could not save — is the app (npm start) still running? Nothing was written; your changes are still in this form, try again.';
+    msg.classList.add('save-msg-error');
+    // Left visible (no timeout) until the next successful save clears it — an error the
+    // user might miss for a few seconds is worse than one that lingers.
+  }
 });
 
 function renderDocList(elId, files, kind) {

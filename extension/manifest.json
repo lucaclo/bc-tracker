@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "B.C Tracker — Internship Application Autofill",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "Reads your WSO Academy application tracker, autofills job application forms from your saved profile, and logs applications to your local B.C Tracker app. Never submits anything for you.",
   "permissions": ["storage", "scripting", "activeTab", "tabs", "sidePanel"],
   "host_permissions": [
@@ -15,6 +15,15 @@
   },
   "action": {
     "default_title": "B.C Tracker — open side panel"
+  },
+  "commands": {
+    "run-fill": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+F",
+        "mac": "Command+Shift+F"
+      },
+      "description": "Autofill this page from your B.C Tracker profile"
+    }
   },
   "side_panel": {
     "default_path": "popup.html"

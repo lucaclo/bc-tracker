@@ -53,4 +53,30 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 });
 
+// Keyboard shortcut (default Cmd+Shift+F on Mac, Ctrl+Shift+F elsewhere — see manifest.json
+// "commands", customizable at chrome://extensions/shortcuts). Runs the exact same fill as
+// the side panel's "Fill this page" button on the current tab's content script, which
+// already loads on any website (see manifest.json content_scripts <all_urls>) and reports
+// its own result back via WSO_FILL_RESULT above — so no extra result-handling needed here.
+//
+// Deliberately does NOT auto-submit the "Log this application" entry: the panel's
+// pre-filled company/role comes from whatever tracker row was last captured, which can be
+// stale or belong to a different job than the one just filled (confirmed live — a captured
+// "Alantra" context was still showing while autofilling an unrelated HSBC page). Silently
+// POSTing that would record a wrong application. Instead this just opens the panel so Luca
+// can glance at the pre-filled fields and click "Log application" himself.
+//
+// sidePanel.open() is only allowed while the keypress's user gesture is still active, which
+// ends at the first `await` — so it must be called synchronously, using the `tab` Chrome
+// passes to onCommand, before anything else is awaited.
+chrome.commands.onCommand.addListener((command, tab) => {
+  if (command !== 'run-fill' || !tab?.id) return;
+  chrome.sidePanel.open({ windowId: tab.windowId }).catch(() => {
+    // Not critical — the fill still proceeds; the panel can be opened from the toolbar.
+  });
+  chrome.tabs.sendMessage(tab.id, { type: 'WSO_RUN_FILL' }).catch(() => {
+    // No content script on this tab (chrome:// page, tracker page, etc.) — nothing to fill.
+  });
+});
+
 chrome.tabs.onRemoved.addListener((tabId) => tabResults.delete(tabId));

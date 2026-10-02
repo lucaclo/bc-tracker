@@ -175,10 +175,15 @@
     }
   }
 
-  // Delegate clicks so this keeps working even if the site re-renders rows (React etc).
-  document.addEventListener(
-    'click',
-    (event) => {
+  // Shared by both trigger events below. Never throws outward — an exception here must
+  // never surface as an uncaught error on a real click, and must never go silently
+  // unlogged either (the whole point of this diagnostic wrapper is so a failure is always
+  // visible in the console instead of just "nothing happened").
+  function handlePossibleCaptureClick(event) {
+    // Left or middle button only — a right-click (just opening the context menu) must not
+    // overwrite the last captured row.
+    if (event.button !== 0 && event.button !== 1) return;
+    try {
       const tables = findTrackerTables();
       for (const table of tables) {
         if (!table.contains(event.target)) continue;
@@ -206,7 +211,18 @@
         // Do not preventDefault — let the site's own click behavior (new tab / navigation)
         // proceed.
       }
-    },
-    true
-  );
+    } catch (e) {
+      console.error('[BC] tracker-reader click handler threw — capture did not run for this click', e);
+    }
+  }
+
+  // Two triggers, not one: 'mousedown' fires strictly before 'click' (and before any
+  // browser default action, e.g. opening a target="_blank" link's new tab), so listening
+  // there too catches the row's data slightly earlier — cheap insurance against any timing
+  // where the page's own click handling (React re-rendering the row, a navigation, etc)
+  // could otherwise interfere before our own 'click' listener gets to run. Both listeners
+  // call the exact same logic; whichever fires first wins; a duplicate second call is
+  // harmless (just re-saves the same data).
+  document.addEventListener('mousedown', handlePossibleCaptureClick, true);
+  document.addEventListener('click', handlePossibleCaptureClick, true);
 })();

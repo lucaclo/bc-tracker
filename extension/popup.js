@@ -37,6 +37,15 @@ chrome.windows.onFocusChanged.addListener((windowId) => {
   if (windowId !== chrome.windows.WINDOW_ID_NONE) refreshForActiveTab();
 });
 
+// A fill started by the keyboard shortcut (background.js) never goes through the "Fill
+// this page" button below, so the panel learns about it from the content script's own
+// result broadcast instead.
+chrome.runtime.onMessage.addListener((message, sender) => {
+  if (message.type === 'WSO_FILL_RESULT' && sender.tab?.id === activeTab?.id) {
+    renderFillResult(message.result);
+  }
+});
+
 async function checkAppStatus() {
   const dot = document.getElementById('app-status');
   try {
