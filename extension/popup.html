@@ -8,6 +8,7 @@
 <body>
   <header>
     <strong>B.C Tracker</strong>
+    <a id="open-tracker" class="tracker-link" href="http://localhost:5055" target="_blank" rel="noopener">Open tracker ↗</a>
     <span id="app-status" class="status-dot" title="Local app status"></span>
   </header>
 
@@ -26,6 +27,7 @@
   <section class="block">
     <h2>Log this application</h2>
     <p class="hint" id="context-hint"></p>
+    <p class="hint missing-hint" id="missing-hint" role="status" hidden></p>
     <form id="log-form">
       <label>Company <input name="company" required /></label>
       <label>Role / Program <input name="role" required /></label>

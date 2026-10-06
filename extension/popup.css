@@ -15,12 +15,18 @@ header {
   margin-bottom: 10px;
 }
 header strong { font-size: 14px; }
+.tracker-link {
+  margin-left: auto;
+  color: #0d9488;
+  font-size: 12px;
+  text-decoration: none;
+}
+.tracker-link:hover { text-decoration: underline; }
 .status-dot {
   width: 8px;
   height: 8px;
   border-radius: 50%;
   background: #d1d5db;
-  margin-left: auto;
 }
 .status-dot.ok { background: #1f9d55; }
 .status-dot.bad { background: #dc2626; }
@@ -90,3 +96,6 @@ input, select, textarea {
   font-family: inherit;
 }
 textarea { resize: vertical; }
+
+.missing-hint { color: #92400e; background: #fff7ed; padding: 6px 8px; border-radius: 5px; }
+#log-form input.missing { border-color: #d97706; background: #fffbeb; }
