@@ -146,19 +146,38 @@ function prefillFromContext(context) {
     form.elements.role.value = context.role || '';
     form.elements.industry.value = context.industry || '';
     form.elements.region.value = context.region || '';
-    if (context.deadline) form.elements.deadline.value = normalizeDate(context.deadline);
+    // deadlineISO is parsed by tracker-reader.js in local time; older captures only have
+    // the raw text, which is left for the user rather than guessed at.
+    form.elements.deadline.value = context.deadlineISO || '';
     hint.textContent = `Pre-filled from ${context.sourceSite || 'your tracker'} (captured ${new Date(context.capturedAt).toLocaleString()}). Edit anything that's off.`;
+    markMissing(form, context);
   } else {
     hint.textContent = 'No tracker row captured recently — fill in manually, or click "Apply" on a row in your WSO tracker or Trackr first.';
+    markMissing(form, null);
   }
-  form.elements.dateApplied.value = new Date().toISOString().slice(0, 10);
+  form.elements.dateApplied.value = localISODate(new Date());
 }
 
-function normalizeDate(text) {
-  // WSO shows dates like "Aug 07" or "Jul 02" without a year; leave as-is if unparseable.
-  const parsed = Date.parse(text);
-  if (!isNaN(parsed)) return new Date(parsed).toISOString().slice(0, 10);
-  return '';
+const FIELD_LABELS = { company: 'Company', role: 'Role', industry: 'Industry', region: 'Region' };
+
+// Says out loud which fields the tracker didn't provide, instead of leaving a silent blank.
+function markMissing(form, context) {
+  const missingEl = document.getElementById('missing-hint');
+  const missing = context
+    ? Object.keys(FIELD_LABELS).filter((k) => !form.elements[k].value.trim())
+    : [];
+  for (const key of Object.keys(FIELD_LABELS)) {
+    form.elements[key].classList.toggle('missing', missing.includes(key));
+  }
+  missingEl.hidden = !missing.length;
+  missingEl.textContent = missing.length
+    ? `Not found on the tracker: ${missing.map((k) => FIELD_LABELS[k]).join(', ')}. Please fill in.`
+    : '';
+}
+
+function localISODate(date) {
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 }
 
 document.getElementById('log-form').addEventListener('submit', async (e) => {
@@ -167,7 +186,7 @@ document.getElementById('log-form').addEventListener('submit', async (e) => {
   const body = Object.fromEntries(new FormData(form).entries());
   body.source = capturedContext?.sourceSite || 'Manual';
   body.applicationLink = activeTab?.url || '';
-  body.groupDivision = capturedContext?.groupDivision || '';
+  body.groupDivision = capturedContext?.groupDivision || capturedContext?.section || '';
   body.roleType = capturedContext?.roleType || '';
 
   const msg = document.getElementById('log-msg');
@@ -181,14 +200,18 @@ document.getElementById('log-form').addEventListener('submit', async (e) => {
     msg.textContent = 'Logged ✓';
     setTimeout(() => (msg.textContent = ''), 2500);
     form.reset();
+    markMissing(form, null);
     formTouched = false;
   } catch (err) {
     msg.textContent = 'Could not reach the local app — is it running?';
   }
 });
 
-document.getElementById('log-form').addEventListener('input', () => {
+document.getElementById('log-form').addEventListener('input', (e) => {
   formTouched = true;
+  if (e.target.classList.contains('missing') && e.target.value.trim()) {
+    markMissing(e.currentTarget, capturedContext);
+  }
 });
 
 (async function init() {

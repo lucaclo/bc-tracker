@@ -22,52 +22,84 @@ time it runs (`store.ensureDataFiles()`). If you're cloning this to use for your
 applications, you start from a completely empty profile — none of the original author's
 data ships with the code.
 
-## Setup, step by step
+## Install from GitHub, step by step
 
-**1. Clone the repo and install dependencies**
+**What you need first**
+
+- **Google Chrome** (or another Chromium browser such as Edge, Brave or Arc).
+- **Node.js 22 or newer** — download the "LTS" installer from https://nodejs.org and run
+  it. Check it worked by opening Terminal and running `node -v` (it should print `v22…`
+  or higher).
+- **Git** (optional) — only needed for the `git clone` route below. On a Mac, running
+  `git --version` in Terminal offers to install it if it's missing.
+
+**1. Download the code** — either:
+
+- **With Git:**
+  ```
+  git clone https://github.com/lucaclo/bc-tracker.git
+  cd bc-tracker
+  ```
+- **Without Git:** open https://github.com/lucaclo/bc-tracker, click the green **Code**
+  button → **Download ZIP**, unzip it, and in Terminal `cd` into the unzipped
+  `bc-tracker-main` folder.
+
+**2. Install the app's dependencies** (first time only)
 
 ```
-git clone https://github.com/<your-username>/bc-tracker.git
-cd bc-tracker/app
+cd app
 npm install
 ```
 
-**2. Start the local app** (leave this running while you apply)
+**3. Start the local app** — leave this Terminal window open while you apply:
 
 ```
 npm start
 ```
 
-It listens at http://localhost:5055 — open that in a browser tab.
+You should see `B.C Tracker app running at http://localhost:5055`. Open
+http://localhost:5055 in Chrome. If that page says "refused to connect", the app isn't
+running — go back to this step.
 
-**3. Fill in your Profile**
+**4. Fill in your Profile**
 
 On the app's **Profile** tab, enter your own personal info, address, education, work
 experience, languages, skills, work-authorization status, and upload your CV/cover
-letter. This is what the extension reads from when it autofills a form — nothing is
-guessed or invented, so anything you leave blank here will show up as "needs your input"
-on real application forms rather than being skipped silently.
+letter, then click **Save profile**. This is what the extension reads from when it
+autofills a form — nothing is guessed or invented, so anything you leave blank here will
+show up as "needs your input" on real application forms rather than being skipped silently.
 
-**4. Load the browser extension** (first time only)
+**5. Load the browser extension** (first time only)
 
 - Go to `chrome://extensions`
-- Enable "Developer mode" (top right toggle)
-- Click "Load unpacked" → select the `extension/` folder from this repo
-- Click the B.C Tracker toolbar icon once to open its **side panel** — pin it (click the
-  puzzle-piece icon → the pin next to B.C Tracker) so it's always one click away. Once
-  opened, it stays docked on the right and follows you across tabs until you close it.
+- Turn on **Developer mode** (top-right toggle)
+- Click **Load unpacked** → select the `extension/` folder inside the downloaded code
+- Click the puzzle-piece icon in Chrome's toolbar → the pin next to **B.C Tracker**
+- Click the B.C Tracker icon to open its **side panel**. The dot next to "Open tracker"
+  turns green when the app from step 3 is running; "Open tracker" opens the app.
 
-**5. Whenever you change the extension's code**, Chrome does not auto-reload it — go to
-`chrome://extensions` and click the reload icon on the B.C Tracker card, then refresh any
-tab that was already open before the reload (an already-loaded tab's content script loses
-its connection to the extension until the tab itself is refreshed).
+**6. Updating to a newer version later**
+
+- With Git: `git pull` in the `bc-tracker` folder. Without Git: download the ZIP again
+  and replace the folder (your data in `app/data/` is not in the ZIP — copy that folder
+  across first if you replace the whole thing).
+- Then run `npm install` in `app/`, restart `npm start`, go to `chrome://extensions` and
+  click the reload icon on the B.C Tracker card, and refresh any open tracker tabs.
+  Chrome never reloads an unpacked extension by itself.
+
+**Running the tests** (optional): `npm test` in `app/` checks the tracker reader against
+a copy of Trackr's page structure.
 
 ## Using it day-to-day
 
 - Browse to your WSO tracker (wallstreetoasis.com/academy/dashboard/tracker) or a
   the-trackr.com tracker page and click **Apply** (or the row's application link) — the
   extension quietly captures that row's details (company, role, industry, region,
-  deadline) so they're ready to prefill the log entry later.
+  deadline) so they're ready to prefill the log entry later. On Trackr, which has no
+  industry/region columns, the industry comes from the section heading above the row
+  ("Bulge Bracket", "Asset Management", …) and the region from the tracker itself ("UK
+  Finance", "Hong Kong Finance", …). Anything still missing is called out in the side
+  panel rather than left silently blank.
 - On the application page that opens, click **Fill this page** in the side panel. Filled
   fields get a green outline; anything that needs your attention gets an orange dashed
   outline and is listed in the panel (click an item to jump to it).
@@ -82,7 +114,8 @@ its connection to the extension until the tab itself is refreshed).
 - Click **Log application** in the side panel to save it to your tracker. It's pre-filled
   from the row you last clicked "Apply" on (WSO or Trackr).
 - See everything, sort/filter, edit status, or export to CSV/XLSX from the app's
-  **Applications** tab.
+  **Applications** tab. The XLSX export is a formatted Excel table (striped rows, colour-
+  coded status, deadline warnings) with a Summary sheet of counts by status and industry.
 
 ## What's intentionally best-effort
 
