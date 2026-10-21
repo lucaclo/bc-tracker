@@ -438,7 +438,7 @@ document.getElementById('log-form').addEventListener('input', (e) => {
 // local app.
 
 // Adapters first so they're registered when the reader runs; companyMatch before both.
-const CONTACT_FILES = ['lib/companyMatch.js', 'content/contact-reader.js'];
+const CONTACT_FILES = ['lib/companyMatch.js', 'lib/contactAdapters/linkedin.js', 'content/contact-reader.js'];
 let captured = null; // { site, url, contacts: [{ ...contact, include }] }
 
 const captureMsg = document.getElementById('capture-msg');
