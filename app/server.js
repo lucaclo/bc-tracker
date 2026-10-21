@@ -431,6 +431,110 @@ function buildSummarySheet(workbook, applications) {
   return sheet;
 }
 
+const CONTACT_STATUS_LABELS = {
+  'to-contact': 'To contact',
+  messaged: 'Messaged',
+  replied: 'Replied',
+  'call-done': 'Call done',
+  'not-relevant': 'Not relevant'
+};
+
+const CONTACT_EXPORT_COLUMNS = [
+  { header: 'Name', key: 'name', width: 24 },
+  { header: 'Title', key: 'title', width: 28, wrap: true },
+  { header: 'Company', key: 'company', width: 22 },
+  { header: 'Linked application', key: 'linkedApplication', width: 22 },
+  { header: 'Status', key: 'statusLabel', width: 13 },
+  { header: 'Last Contacted', key: 'lastContacted', width: 14, date: true },
+  { header: 'Team', key: 'team', width: 16 },
+  { header: 'Location', key: 'location', width: 16 },
+  { header: 'Email', key: 'email', width: 26 },
+  { header: 'LinkedIn', key: 'linkedinUrl', width: 12, link: true },
+  { header: 'Profile', key: 'profileUrl', width: 12, link: true },
+  { header: 'Source Group', key: 'sourceGroup', width: 20 },
+  { header: 'Source Site', key: 'sourceSite', width: 18 },
+  { header: 'School', key: 'school', width: 20 },
+  { header: 'Grad Year', key: 'gradYear', width: 10 },
+  { header: 'Society', key: 'society', width: 18 },
+  { header: 'Notes', key: 'notes', width: 40, wrap: true }
+];
+
+// Contacts ready to export: sorted by company then name, with the application each links to.
+function contactsForExport() {
+  const applications = store.getApplications();
+  const links = contactsLib.linkIndex(applications, store.getContacts(), aliases());
+  const linked = new Map();
+  for (const a of applications) for (const c of links.contactsFor(a)) if (!linked.has(c.id)) linked.set(c.id, a.company);
+  return store.getContacts()
+    .map((c) => ({ ...c, linkedApplication: linked.get(c.id) || '', statusLabel: CONTACT_STATUS_LABELS[c.status] || c.status || '' }))
+    .sort((a, b) => (a.company || '~').localeCompare(b.company || '~') || (a.name || '').localeCompare(b.name || ''));
+}
+
+// Same look as the Applications sheet: brand header, filterable table, visible-row stripes.
+function buildContactsSheet(workbook, contacts) {
+  const sheet = workbook.addWorksheet('Contacts', {
+    views: [{ state: 'frozen', xSplit: 1, ySplit: 1, showGridLines: false }],
+    pageSetup: { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0, printTitlesRow: '1:1' }
+  });
+  CONTACT_EXPORT_COLUMNS.forEach((c, i) => (sheet.getColumn(i + 1).width = c.width));
+  const safeLink = (v) => (/^https?:\/\//i.test(v) ? v : '');
+  const rows = contacts.map((c) =>
+    CONTACT_EXPORT_COLUMNS.map((col) => {
+      const value = c[col.key] || '';
+      if (col.date) return parseISODate(value) || value || null;
+      if (col.link) return safeLink(value) ? { text: 'Open link', hyperlink: value, tooltip: value } : value || null;
+      return value || null;
+    })
+  );
+  sheet.addTable({
+    name: 'Contacts',
+    ref: 'A1',
+    headerRow: true,
+    style: { theme: 'TableStyleLight1', showRowStripes: false },
+    columns: CONTACT_EXPORT_COLUMNS.map((c) => ({ name: c.header, filterButton: true })),
+    rows: rows.length ? rows : [CONTACT_EXPORT_COLUMNS.map(() => null)]
+  });
+
+  const header = sheet.getRow(1);
+  header.height = 24;
+  header.eachCell((cell) => {
+    cell.font = font({ bold: true, color: { argb: 'FFFFFFFF' } });
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: BRAND } };
+    cell.alignment = { vertical: 'middle', horizontal: 'left' };
+  });
+  const lastRow = Math.max(contacts.length + 1, 2) + 500;
+  const lastCol = String.fromCharCode(64 + CONTACT_EXPORT_COLUMNS.length);
+  sheet.addConditionalFormatting({
+    ref: `A2:${lastCol}${lastRow}`,
+    rules: [{
+      type: 'expression',
+      formulae: ['MOD(SUBTOTAL(103,$A$2:$A2),2)=0'],
+      style: { fill: { type: 'pattern', pattern: 'solid', bgColor: { argb: STRIPE } } }
+    }]
+  });
+  contacts.forEach((c, i) => {
+    const row = sheet.getRow(i + 2);
+    CONTACT_EXPORT_COLUMNS.forEach((col, j) => {
+      const cell = row.getCell(j + 1);
+      cell.font = font({ color: { argb: 'FF1E2433' } });
+      cell.alignment = { vertical: 'top', wrapText: !!col.wrap };
+      if (col.date) cell.numFmt = 'd mmm yyyy';
+      if (col.link && cell.value && cell.value.hyperlink) cell.font = font({ color: { argb: BRAND }, underline: true });
+    });
+    row.getCell(1).font = font({ bold: true });
+  });
+  return sheet;
+}
+
+app.get('/api/contacts/export.csv', (req, res) => {
+  const escape = (value) => `"${String(value ?? '').replace(/"/g, '""')}"`;
+  const lines = [CONTACT_EXPORT_COLUMNS.map((c) => escape(c.header)).join(',')];
+  for (const row of contactsForExport()) lines.push(CONTACT_EXPORT_COLUMNS.map((c) => escape(row[c.key])).join(','));
+  res.setHeader('Content-Type', 'text/csv');
+  res.setHeader('Content-Disposition', 'attachment; filename="bc-tracker-contacts.csv"');
+  res.send(lines.join('\n'));
+});
+
 app.get('/api/applications/export.xlsx', async (req, res) => {
   const applications = sortForExport(store.getApplications());
   const workbook = new ExcelJS.Workbook();
@@ -438,6 +542,7 @@ app.get('/api/applications/export.xlsx', async (req, res) => {
   workbook.created = new Date();
   buildApplicationsSheet(workbook, applications);
   buildSummarySheet(workbook, applications);
+  buildContactsSheet(workbook, contactsForExport());
 
   res.setHeader(
     'Content-Type',
