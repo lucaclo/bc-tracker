@@ -38,7 +38,9 @@ app.get('/api/profile', (req, res) => {
 });
 
 app.put('/api/profile', (req, res) => {
-  const saved = store.saveProfile(req.body || {});
+  // Company aliases are only changed through /api/contacts/:id/assign. The profile form sends
+  // the copy it loaded at page open, which may be older than an alias added since.
+  const saved = store.saveProfile({ ...(req.body || {}), companyAliases: store.getProfile().companyAliases });
   res.json(saved);
 });
 
@@ -87,7 +89,16 @@ app.delete('/api/profile/cv/:kind/:id', (req, res) => {
 const STATUSES = ['Bookmarked', 'Applying', 'Applied', 'Interviewing', 'Offer', 'Rejected'];
 
 app.get('/api/applications', (req, res) => {
-  res.json(store.getApplications());
+  const applications = store.getApplications();
+  const links = contactsLib.linkIndex(applications, store.getContacts(), aliases());
+  res.json(applications.map((a) => ({ ...a, contactCount: links.contactsFor(a).length })));
+});
+
+app.get('/api/applications/:id/contacts', (req, res) => {
+  const applications = store.getApplications();
+  const application = applications.find((a) => a.id === req.params.id);
+  if (!application) return res.status(404).json({ error: 'Not found' });
+  res.json(contactsLib.linkIndex(applications, store.getContacts(), aliases()).contactsFor(application));
 });
 
 app.post('/api/applications', (req, res) => {
@@ -127,6 +138,7 @@ app.put('/api/applications/:id', (req, res) => {
     id: applications[idx].id,
     updatedAt: new Date().toISOString()
   };
+  delete updated.contactCount; // computed on read, never stored
   applications[idx] = updated;
   store.saveApplications(applications);
   res.json(updated);
@@ -140,14 +152,21 @@ app.delete('/api/applications/:id', (req, res) => {
 
 // ---- Contacts ----
 
+const aliases = () => store.getProfile().companyAliases || {};
+const keyOf = () => {
+  const a = aliases();
+  return (company) => contactsLib.companyKey(company, a);
+};
+
 app.get('/api/contacts', (req, res) => {
   res.json(store.getContacts());
 });
 
 app.post('/api/contacts', (req, res) => {
-  const candidate = contactsLib.normaliseContact(req.body || {});
+  const key = keyOf();
+  const candidate = contactsLib.normaliseContact(req.body || {}, key);
   if (!candidate.name) return res.status(400).json({ error: 'A contact needs a name' });
-  const result = contactsLib.upsertContacts(store.getContacts(), [candidate]);
+  const result = contactsLib.upsertContacts(store.getContacts(), [candidate], key);
   store.saveContacts(result.contacts);
   const saved = result.contacts.find((c) => c.id === result.ids[0]);
   res.status(result.created ? 201 : 200).json(saved);
@@ -157,16 +176,43 @@ app.post('/api/contacts', (req, res) => {
 app.post('/api/contacts/bulk', (req, res) => {
   const rows = Array.isArray(req.body) ? req.body : req.body?.contacts;
   if (!Array.isArray(rows)) return res.status(400).json({ error: 'Send an array of contacts' });
-  const result = contactsLib.upsertContacts(store.getContacts(), rows);
+  const result = contactsLib.upsertContacts(store.getContacts(), rows, keyOf());
   if (result.created || result.merged) store.saveContacts(result.contacts);
   res.json({ created: result.created, merged: result.merged, skipped: result.skipped, ids: result.ids });
+});
+
+// Contacts at firms with no application yet that the matcher doesn't recognise either.
+app.get('/api/contacts/unassigned', (req, res) => {
+  res.json(contactsLib.linkIndex(store.getApplications(), store.getContacts(), aliases()).unassigned);
+});
+
+// The user says which firm an unrecognised company name really is. That raw name → firm alias
+// is remembered, so everyone else captured under the same name links too.
+app.post('/api/contacts/:id/assign', (req, res) => {
+  const company = String(req.body?.company || '').trim();
+  if (!company) return res.status(400).json({ error: 'Pass the company to assign to' });
+  let contacts = store.getContacts();
+  const contact = contacts.find((c) => c.id === req.params.id);
+  if (!contact) return res.status(404).json({ error: 'Not found' });
+
+  const profile = store.getProfile();
+  if (contact.company && contactsLib.companyKey(contact.company) !== contactsLib.companyKey(company)) {
+    profile.companyAliases = { ...(profile.companyAliases || {}), [contact.company]: company };
+    store.saveProfile(profile);
+  } else {
+    // Nothing to remember for a blank company: just set this one contact's firm.
+    contact.company = company;
+  }
+  contacts = contactsLib.rekeyAll(contacts, profile.companyAliases);
+  store.saveContacts(contacts);
+  res.json({ contact: contacts.find((c) => c.id === req.params.id), aliases: profile.companyAliases });
 });
 
 app.put('/api/contacts/:id', (req, res) => {
   const contacts = store.getContacts();
   const idx = contacts.findIndex((c) => c.id === req.params.id);
   if (idx === -1) return res.status(404).json({ error: 'Not found' });
-  const updated = contactsLib.updateContact(contacts[idx], req.body || {});
+  const updated = contactsLib.updateContact(contacts[idx], req.body || {}, keyOf());
   if (!updated.name) return res.status(400).json({ error: 'A contact needs a name' });
   contacts[idx] = updated;
   store.saveContacts(contacts);
