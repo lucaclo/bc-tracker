@@ -51,11 +51,17 @@ function loadUI(base, { hash = '' } = {}) {
   const html = fs.readFileSync(path.join(pub, 'index.html'), 'utf8').replace(/<script[^>]*><\/script>/g, '');
   const dom = new JSDOM(html, { url: `http://localhost/${hash}`, runScripts: 'outside-only', pretendToBeVisual: true });
   const { window } = dom;
-  window.fetch = (url, opts) => fetch(new URL(url, base), opts);
+  // Counts requests in flight so a test can wait for the page to settle before the app stops.
+  let inFlight = 0;
+  window.fetch = async (url, opts) => {
+    inFlight += 1;
+    try { return await fetch(new URL(url, base), opts); } finally { inFlight -= 1; }
+  };
+  window.settled = () => waitFor(() => inFlight === 0);
   window.HTMLDialogElement.prototype.showModal ||= function () { this.open = true; };
   window.HTMLDialogElement.prototype.close ||= function () { this.open = false; };
   window.console = { log() {}, warn() {}, error() {} };
-  for (const file of ['contacts.js', 'app.js']) {
+  for (const file of ['contact-import.js', 'contacts.js', 'app.js']) {
     window.eval(fs.readFileSync(path.join(pub, 'js', file), 'utf8'));
   }
   return window;

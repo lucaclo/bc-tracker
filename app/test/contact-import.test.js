@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const imp = require('../public/js/contact-import');
 
 test('RFC 4180: quoted commas, quoted newlines, doubled quotes, CRLF, BOM, blank lines', () => {
-  const text = '﻿Name,Notes\r\n"Smith, Jo","said ""hi""\nthen left"\r\n\r\nAl,plain\r\n';
+  const text = '\uFEFFName,Notes\r\n"Smith, Jo","said ""hi""\nthen left"\r\n\r\nAl,plain\r\n';
   assert.deepEqual(imp.parseDelimited(text), [
     ['Name', 'Notes'],
     ['Smith, Jo', 'said "hi"\nthen left'],
