@@ -43,3 +43,34 @@ async function startApp() {
 }
 
 module.exports = { startApp };
+
+// Loads the app's real page and scripts into jsdom, with fetch pointed at a running test app.
+function loadUI(base, { hash = '' } = {}) {
+  const { JSDOM } = require('jsdom');
+  const pub = path.join(__dirname, '..', 'public');
+  const html = fs.readFileSync(path.join(pub, 'index.html'), 'utf8').replace(/<script[^>]*><\/script>/g, '');
+  const dom = new JSDOM(html, { url: `http://localhost/${hash}`, runScripts: 'outside-only', pretendToBeVisual: true });
+  const { window } = dom;
+  window.fetch = (url, opts) => fetch(new URL(url, base), opts);
+  window.HTMLDialogElement.prototype.showModal ||= function () { this.open = true; };
+  window.HTMLDialogElement.prototype.close ||= function () { this.open = false; };
+  window.console = { log() {}, warn() {}, error() {} };
+  for (const file of ['contacts.js', 'app.js']) {
+    window.eval(fs.readFileSync(path.join(pub, 'js', file), 'utf8'));
+  }
+  return window;
+}
+
+// Polls until check() returns something truthy (the UI fetches asynchronously).
+async function waitFor(check, { timeout = 3000 } = {}) {
+  const start = Date.now();
+  for (;;) {
+    const value = await check();
+    if (value) return value;
+    if (Date.now() - start > timeout) throw new Error('waitFor timed out');
+    await new Promise((r) => setTimeout(r, 20));
+  }
+}
+
+module.exports.loadUI = loadUI;
+module.exports.waitFor = waitFor;
