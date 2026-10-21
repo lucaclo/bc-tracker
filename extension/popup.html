@@ -68,6 +68,33 @@
     </form>
   </section>
 
+  <hr />
+
+  <section class="block" id="capture-block">
+    <h2>Capture contacts</h2>
+    <p class="hint">
+      Reads the people listed on this page (an alumni directory, a society members list,
+      LinkedIn search results) so you can save them as contacts. Nobody is messaged, and
+      nothing leaves your computer.
+    </p>
+    <button type="button" id="capture-btn" class="btn btn-secondary">Capture contacts</button>
+    <p id="capture-msg" class="hint" role="status"></p>
+    <div id="capture-review" hidden>
+      <label class="stacked">Source group
+        <input id="capture-source" placeholder="Old Wellingtonian, Finance Society…" />
+      </label>
+      <p id="capture-source-hint" class="hint"></p>
+      <div class="capture-toolbar">
+        <label><input type="checkbox" id="capture-all" /> Select all</label>
+        <span id="capture-count" class="hint"></span>
+      </div>
+      <ul id="capture-rows" class="capture-rows"></ul>
+      <button type="button" id="capture-save" class="btn">Save contacts</button>
+      <button type="button" id="capture-discard" class="link-btn">Discard</button>
+    </div>
+    <p id="pending-contacts-hint" class="hint pending-hint" hidden></p>
+  </section>
+
   <script src="popup.js"></script>
 </body>
 </html>
