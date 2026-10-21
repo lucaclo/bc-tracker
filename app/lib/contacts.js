@@ -139,6 +139,33 @@ function updateContact(existing, changes, keyOf = companyKey) {
   return updated;
 }
 
+// Which contacts belong to which application, computed at read time from company names so
+// renames, new aliases and applications created later all just work.
+function linkIndex(applications, contacts, userAliases) {
+  const key = (name) => companyKey(name, userAliases);
+  const byKey = new Map();
+  for (const c of contacts) {
+    const k = key(c.company);
+    if (!k) continue;
+    if (!byKey.has(k)) byKey.set(k, []);
+    byKey.get(k).push(c);
+  }
+  const appKeys = new Set(applications.map((a) => key(a.company)).filter(Boolean));
+  return {
+    contactsFor: (application) => byKey.get(key(application.company)) || [],
+    // No application at that firm and not a firm we recognise: the user decides.
+    unassigned: contacts.filter((c) => {
+      const k = key(c.company);
+      return !k || (!appKeys.has(k) && !companyMatch.isKnownAlias(c.company, userAliases));
+    })
+  };
+}
+
+// Re-keys everything after the alias table changes.
+function rekeyAll(contacts, userAliases) {
+  return contacts.map((c) => ({ ...c, companyKey: companyKey(c.company, userAliases) }));
+}
+
 module.exports = {
   STATUSES,
   FIELDS,
@@ -150,5 +177,7 @@ module.exports = {
   mergeContact,
   createContact,
   upsertContacts,
-  updateContact
+  updateContact,
+  linkIndex,
+  rekeyAll
 };
