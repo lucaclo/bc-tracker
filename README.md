@@ -137,6 +137,69 @@ a copy of Trackr's page structure.
   **Applications** tab. The XLSX export is a formatted Excel table (striped rows, colour-
   coded status, deadline warnings) with a Summary sheet of counts by status and industry.
 
+## Contacts: who you know at each firm
+
+B.C Tracker can keep a list of people (alumni from your school or university, society
+members, LinkedIn connections) and attach each one to the firm they work at. Every
+application to that firm then shows them as networking leads.
+
+**Adding contacts.** On the app's **Contacts** tab:
+
+- **Add contact** to type someone in by hand.
+- **Import…** for a CSV file or rows pasted from a spreadsheet: a society member list, or
+  LinkedIn's own export (LinkedIn → Settings → Data privacy → Get a copy of your data →
+  Connections). Columns are matched automatically (First Name, Last Name, Company,
+  Position, Email, URL, Connected On, …). You can correct any of them, set a source group
+  for the batch, and preview the rows before anything is saved. Rows without a name are
+  skipped and counted, never saved.
+
+**Capturing from a page you're on.** Open a directory you're logged in to (an alumni
+network, a members list, LinkedIn people search or a school's alumni page) and click
+**Capture contacts** in the extension's side panel. It reads the people on that page and
+shows them for review. Anyone it isn't sure about (no clear name, no company) starts
+unticked, with the reason shown. Fix a company if needed, set a source group (remembered
+per site), and click **Save**. If the app isn't running, the capture is kept in the
+extension and saved once the app is back. Already-saved people are merged, not
+duplicated: their details are refreshed, but your own status, notes and last-contacted
+date are never overwritten.
+
+**Multi-page capture (opt-in).** Tick **Capture multiple pages** to let the panel step
+through a directory for you. It only works in the tab you started it from, clicks the
+site's own Next button (or scrolls the list), waits a random 4–10 seconds between pages,
+and stops after 5 pages by default (25 at most). It also stops on a login page, a
+security check, a page with nobody new, or when you click **Stop**, and keeps what it has
+so far for review. It never opens individual profiles. The first time you use it on a
+site you'll be warned that automated browsing may break that site's terms and put your
+account at risk, and you have to accept before it runs.
+
+**Seeing them on your applications.** Each row on the **Applications** tab has a
+**Contacts (n)** button. Open it to see the names, and click a name to see everything
+saved about that person. Status, last contacted and notes can be edited right there.
+Firms are matched by name, so "J.P. Morgan", "JPMorgan Chase & Co." and "JPM" are the same
+firm, but a near-miss is never guessed ("Citi" is not "Citizens Bank"). People at a firm
+the app doesn't recognise land in the **Unassigned** list on the Contacts tab. Say which
+company they belong to once, and that name is remembered for everyone else captured
+under it.
+
+**Deleting.** Delete one person from the Contacts tab, or use **Delete a source…** to
+remove everyone saved under one source group (e.g. a society list you no longer want)
+after a confirmation step.
+
+**Export.** The XLSX export has a **Contacts** sheet, and the Contacts tab has its own
+**Export CSV** (`bc-tracker-contacts.csv`).
+
+### Contacts and privacy
+
+- Contact data stays on your computer, in `app/data/contacts.json`. It is never sent
+  anywhere else.
+- B.C Tracker **never messages, emails, connects with or follows anyone**. Capture only
+  reads pages you already have open, and it never guesses email addresses.
+- You are responsible for how you use it. Follow the terms of each network you capture
+  from (many alumni platforms and LinkedIn restrict automated collection), and the data
+  protection law that applies to you. In the UK that's UK GDPR: only keep what you
+  genuinely need for your own networking, keep it secure, and delete it (Delete a source…
+  makes that easy) when you no longer need it.
+
 ## Accuracy rule: your profile is the only source
 
 Everything B.C Tracker types into an application comes from your **Profile** page, nothing
@@ -172,6 +235,7 @@ another. B.C Tracker will overwrite and flag them, but starting clean is simpler
 
 - `app/data/profile.json` — your personal info (gitignored)
 - `app/data/applications.json` — your applications table (gitignored)
+- `app/data/contacts.json` — your contacts (gitignored)
 - `app/data/cv/` — uploaded CVs / cover letters (gitignored)
 - `app/data/backups/` — automatic timestamped snapshots taken before every write to the
   files above (gitignored) — recovery copies if something ever gets overwritten by mistake
