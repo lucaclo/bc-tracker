@@ -237,6 +237,9 @@ main {
 }
 .btn-secondary:hover { background: var(--panel-sunk); border-color: var(--muted); }
 
+.btn-danger { background: var(--red); color: #fff; }
+.btn-danger:hover { background: #991b1b; }
+
 .btn-link {
   background: none;
   border: none;
@@ -592,6 +595,36 @@ input[type="checkbox"] { min-height: 0; accent-color: var(--accent); }
 .save-msg:empty { display: none; }
 .save-msg.save-msg-error { color: var(--red); }
 .save-bar .save-msg:empty { display: inline; }
+
+/* ---- Contacts tab ---- */
+.toolbar select { width: auto; min-width: 140px; }
+.contact-row-toggle { padding: 2px 4px; }
+.contact-row-toggle::before { content: "▸"; }
+.unassigned-panel {
+  background: var(--amber-soft);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 14px 16px;
+  margin-bottom: 16px;
+}
+.unassigned-panel h2 { font-size: 15px; margin: 0 0 4px; display: flex; align-items: center; gap: 6px; }
+.unassigned-panel .tab-count { background: var(--amber); color: var(--panel); }
+.unassigned-panel .hint { color: var(--ink); }
+.unassigned-list { list-style: none; margin: 0; padding: 0; }
+.unassigned-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  padding: 8px 0;
+  border-top: 1px solid var(--line);
+}
+.unassigned-who { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; }
+.assign-form { display: flex; gap: 8px; flex: 0 1 380px; }
+.assign-form input { flex: 1; min-width: 0; }
+.empty-ways { text-align: left; max-width: 60ch; margin: 0 auto 14px; padding-left: 20px; }
+.empty-ways li { margin: 4px 0; }
 
 /* ---- Dialog ---- */
 dialog {
