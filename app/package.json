@@ -9,7 +9,8 @@
     "start": "node server.js",
     "test": "node --test test/*.test.js",
     "autostart:install": "sh scripts/autostart.sh install",
-    "autostart:uninstall": "sh scripts/autostart.sh uninstall"
+    "autostart:uninstall": "sh scripts/autostart.sh uninstall",
+    "lint": "cd .. && eslint -c app/eslint.config.js app extension"
   },
   "dependencies": {
     "cors": "^2.8.5",
@@ -18,6 +19,9 @@
     "multer": "^2.0.0"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "eslint": "^9.39.5",
+    "globals": "^17.13.0",
     "jsdom": "^30.1.2"
   }
 }
