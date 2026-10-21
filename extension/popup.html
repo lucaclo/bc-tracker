@@ -77,7 +77,22 @@
       LinkedIn search results) so you can save them as contacts. Nobody is messaged, and
       nothing leaves your computer.
     </p>
+    <div class="multi-options">
+      <label><input type="checkbox" id="multi-page" /> Capture multiple pages</label>
+      <label id="multi-pages-label" hidden>up to <input type="number" id="multi-pages" min="2" max="25" value="5" /> pages</label>
+    </div>
+    <div id="multi-warning" class="banner" role="alertdialog" aria-labelledby="multi-warning-text" hidden>
+      <p id="multi-warning-text">
+        Multi-page capture clicks this site's own Next button (or scrolls its list) for you, in
+        this tab, waiting 4–10 seconds between pages. Automated browsing may break this site's
+        terms of use and could get your account restricted. It never opens profiles or messages
+        anyone. Only continue if you're comfortable with that for this site.
+      </p>
+      <button type="button" id="multi-accept" class="btn">I understand, continue</button>
+      <button type="button" id="multi-cancel" class="link-btn">Cancel</button>
+    </div>
     <button type="button" id="capture-btn" class="btn btn-secondary">Capture contacts</button>
+    <button type="button" id="capture-stop" class="btn btn-stop" hidden>Stop</button>
     <p id="capture-msg" class="hint" role="status"></p>
     <div id="capture-review" hidden>
       <label class="stacked">Source group

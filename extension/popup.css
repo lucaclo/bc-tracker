@@ -141,3 +141,8 @@ label.stacked { display: flex; flex-direction: column; gap: 2px; font-size: 12px
 .capture-company { width: 100%; padding: 3px 6px; font-size: 12px; }
 .capture-flag { color: #92400e; font-size: 11px; }
 #capture-discard { margin-top: 6px; }
+.multi-options { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: center; font-size: 12px; margin: 6px 0; }
+.multi-options label { display: flex; align-items: center; gap: 6px; }
+#multi-pages { width: 52px; padding: 2px 4px; }
+#multi-warning p { margin: 0 0 8px; }
+.btn-stop { background: #b91c1c; margin-top: 6px; }
