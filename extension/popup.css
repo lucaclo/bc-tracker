@@ -124,3 +124,20 @@ textarea { resize: vertical; }
 .pending-hint { color: #92400e; }
 
 .version { color: #9ca3af; font-size: 11px; }
+
+/* ---- Capture contacts ---- */
+.btn-secondary { background: #fff; color: #0f766e; border: 1px solid #0d9488; }
+.btn-secondary:hover { background: #f0fdfa; filter: none; }
+label.stacked { display: flex; flex-direction: column; gap: 2px; font-size: 12px; color: #6b7280; margin-top: 8px; }
+.capture-toolbar { display: flex; justify-content: space-between; align-items: center; margin: 6px 0 4px; font-size: 12px; }
+.capture-toolbar label { display: flex; align-items: center; gap: 6px; }
+.capture-rows { list-style: none; padding: 0; margin: 0 0 8px; max-height: 340px; overflow-y: auto; border: 1px solid #e5e7eb; border-radius: 6px; }
+.capture-rows li { display: grid; grid-template-columns: auto 1fr; gap: 2px 8px; padding: 6px 8px; border-top: 1px solid #f1f5f9; }
+.capture-rows li:first-child { border-top: none; }
+.capture-rows li.flagged { background: #fffbeb; }
+.capture-rows input[type="checkbox"] { grid-row: span 3; margin-top: 2px; }
+.capture-who { font-weight: 600; overflow-wrap: anywhere; }
+.capture-who small { font-weight: 400; color: #6b7280; }
+.capture-company { width: 100%; padding: 3px 6px; font-size: 12px; }
+.capture-flag { color: #92400e; font-size: 11px; }
+#capture-discard { margin-top: 6px; }

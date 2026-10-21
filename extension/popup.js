@@ -59,6 +59,7 @@ chrome.storage.onChanged.addListener((changes, area) => {
     formTouched = false;
   }
   if (changes.pendingLogs) renderPending(changes.pendingLogs.newValue || []);
+  if (changes.pendingContacts) renderPendingContacts(changes.pendingContacts.newValue || []);
 });
 
 // A fill started by the keyboard shortcut (background.js) never goes through the "Fill
@@ -90,6 +91,7 @@ async function checkAppStatus() {
   if (up) {
     if (!cvOptionsLoaded) populateCvOptions(profile);
     flushPendingLogs();
+    flushPendingContacts();
   }
   setTimeout(checkAppStatus, up ? 30000 : 4000);
   return profile;
@@ -429,11 +431,213 @@ document.getElementById('log-form').addEventListener('input', (e) => {
   }
 });
 
+// ---- Capture contacts ----
+// Reads the people on the current page (content/contact-reader.js, injected on demand and
+// never on page load), shows them for review, and saves only what's ticked. Flagged rows
+// (no clear name or no company) start unticked. Nothing is ever sent to anyone but the
+// local app.
+
+// Adapters first so they're registered when the reader runs; companyMatch before both.
+const CONTACT_FILES = ['lib/companyMatch.js', 'content/contact-reader.js'];
+let captured = null; // { site, url, contacts: [{ ...contact, include }] }
+
+const captureMsg = document.getElementById('capture-msg');
+const captureReview = document.getElementById('capture-review');
+const captureSource = document.getElementById('capture-source');
+
+async function readContactsFromTab() {
+  // Always inject: the reader is newest-copy-wins, so this also replaces a stale copy left
+  // behind by an extension reload.
+  await chrome.scripting.executeScript({ target: { tabId: activeTab.id }, files: CONTACT_FILES });
+  return chrome.tabs.sendMessage(activeTab.id, { type: 'BC_READ_CONTACTS' });
+}
+
+document.getElementById('capture-btn').addEventListener('click', async () => {
+  const url = activeTab?.url || '';
+  if (!/^https?:/.test(url) || /^(localhost|127\.0\.0\.1)$/.test(hostOf(url))) {
+    captureMsg.textContent = "Open the directory page you want to capture from first (this can't read the app itself or chrome:// pages).";
+    return;
+  }
+  captureMsg.textContent = 'Reading this page…';
+  let res;
+  try {
+    res = await readContactsFromTab();
+  } catch (e) {
+    captureMsg.textContent = `Couldn't read this page (${e?.message || e}). Reload the tab and try again.`;
+    return;
+  }
+  if (!res?.ok) {
+    captureMsg.textContent = `Couldn't read this page${res?.error ? ` (${res.error})` : ''}.`;
+    return;
+  }
+  if (!res.contacts.length) {
+    captureMsg.textContent = "Didn't find a list of people on this page. Scroll so the list is showing, or add them in the app.";
+    captureReview.hidden = true;
+    captured = null;
+    return;
+  }
+  captured = {
+    site: res.site,
+    url: res.url,
+    contacts: res.contacts.map((c) => ({ ...c, include: c.confidence !== 'low' }))
+  };
+  const groups = (await chrome.storage.local.get('captureSourceGroups')).captureSourceGroups || {};
+  captureSource.value = groups[res.site] || '';
+  document.getElementById('capture-source-hint').textContent = `Remembered for ${res.site}.`;
+  const flagged = captured.contacts.filter((c) => !c.include).length;
+  captureMsg.textContent = `Found ${res.contacts.length} ${res.contacts.length === 1 ? 'person' : 'people'}` +
+    (flagged ? ` · ${flagged} flagged and left unticked, so check them first` : '') + '.';
+  renderCaptureRows();
+  captureReview.hidden = false;
+});
+
+function renderCaptureRows() {
+  const list = document.getElementById('capture-rows');
+  list.innerHTML = '';
+  captured.contacts.forEach((c) => {
+    const li = document.createElement('li');
+    li.className = c.flags?.length ? 'flagged' : '';
+    const box = document.createElement('input');
+    box.type = 'checkbox';
+    box.checked = c.include;
+    box.setAttribute('aria-label', `Save ${c.name || 'this row'}`);
+    box.addEventListener('change', () => {
+      c.include = box.checked;
+      updateCaptureCount();
+    });
+    const who = document.createElement('div');
+    who.className = 'capture-who';
+    who.textContent = c.name || '(no name)';
+    if (c.title) {
+      const small = document.createElement('small');
+      small.textContent = ` · ${c.title}`;
+      who.appendChild(small);
+    }
+    const company = document.createElement('input');
+    company.className = 'capture-company';
+    company.value = c.company || '';
+    company.placeholder = 'Company';
+    company.setAttribute('aria-label', `Company for ${c.name || 'this row'}`);
+    company.addEventListener('input', () => (c.company = company.value.trim()));
+    li.append(box, who, company);
+    if (c.flags?.length) {
+      const flag = document.createElement('div');
+      flag.className = 'capture-flag';
+      flag.textContent = `Flagged: ${c.flags.join(', ')}`;
+      li.appendChild(flag);
+    }
+    list.appendChild(li);
+  });
+  updateCaptureCount();
+}
+
+function updateCaptureCount() {
+  const n = captured.contacts.filter((c) => c.include).length;
+  document.getElementById('capture-count').textContent = `${n} of ${captured.contacts.length} ticked`;
+  const all = document.getElementById('capture-all');
+  all.checked = n === captured.contacts.length;
+  all.indeterminate = n > 0 && n < captured.contacts.length;
+  const save = document.getElementById('capture-save');
+  save.disabled = n === 0;
+  save.textContent = n ? `Save ${n} contact${n === 1 ? '' : 's'}` : 'Save contacts';
+}
+
+document.getElementById('capture-all').addEventListener('change', (e) => {
+  for (const c of captured?.contacts || []) c.include = e.target.checked;
+  renderCaptureRows();
+});
+
+document.getElementById('capture-discard').addEventListener('click', () => {
+  captured = null;
+  captureReview.hidden = true;
+  captureMsg.textContent = '';
+});
+
+document.getElementById('capture-save').addEventListener('click', async () => {
+  if (!captured) return;
+  const sourceGroup = captureSource.value.trim();
+  const groups = (await chrome.storage.local.get('captureSourceGroups')).captureSourceGroups || {};
+  if (sourceGroup) await chrome.storage.local.set({ captureSourceGroups: { ...groups, [captured.site]: sourceGroup } });
+
+  const contacts = captured.contacts
+    .filter((c) => c.include && c.name)
+    .map((c) => ({
+      name: c.name,
+      title: c.title,
+      company: c.company,
+      location: c.location,
+      profileUrl: c.profileUrl,
+      linkedinUrl: c.linkedinUrl,
+      email: c.email,
+      sourceGroup,
+      sourceSite: captured.site
+    }));
+  const unnamed = captured.contacts.filter((c) => c.include && !c.name).length;
+  const result = await postContacts(contacts);
+  if (result) {
+    captureMsg.textContent = `Saved: ${result.created} new, ${result.merged} merged with contacts you already had` +
+      (unnamed ? ` · ${unnamed} ticked row${unnamed === 1 ? '' : 's'} without a name skipped` : '') + '.';
+  } else {
+    await queuePendingContacts(contacts);
+    captureMsg.textContent = `App not running, so ${contacts.length} contact${contacts.length === 1 ? ' is' : 's are'} kept here and will be saved automatically once the app is back.`;
+  }
+  captured = null;
+  captureReview.hidden = true;
+});
+
+async function postContacts(contacts) {
+  try {
+    const res = await fetch(`${APP_BASE}/api/contacts/bulk`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(contacts)
+    });
+    return res.ok ? await res.json() : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+async function getPendingContacts() {
+  return (await chrome.storage.local.get('pendingContacts')).pendingContacts || [];
+}
+
+// Queued as whole batches, so one capture is saved (and merged) in one go.
+async function queuePendingContacts(contacts) {
+  const pending = await getPendingContacts();
+  pending.push({ contacts, queuedAt: new Date().toISOString() });
+  await chrome.storage.local.set({ pendingContacts: pending });
+}
+
+let flushingContacts = false;
+async function flushPendingContacts() {
+  if (flushingContacts) return;
+  flushingContacts = true;
+  try {
+    let pending = await getPendingContacts();
+    while (pending.length) {
+      if (!(await postContacts(pending[0].contacts))) break;
+      pending = pending.slice(1);
+      await chrome.storage.local.set({ pendingContacts: pending });
+    }
+  } finally {
+    flushingContacts = false;
+  }
+}
+
+function renderPendingContacts(pending) {
+  const el = document.getElementById('pending-contacts-hint');
+  const n = pending.reduce((sum, batch) => sum + batch.contacts.length, 0);
+  el.hidden = !n;
+  el.textContent = n ? `${n} captured contact${n === 1 ? '' : 's'} waiting for the app to come back.` : '';
+}
+
 (async function init() {
   document.getElementById('version').textContent = `v${chrome.runtime.getManifest().version}`;
   activeTab = await getActiveTab();
   await checkAppStatus();
   renderPending(await getPendingLogs());
+  renderPendingContacts(await getPendingContacts());
   await loadExistingFillResult();
 
   const stored = await chrome.storage.local.get('trackerLastCapturedContext');
