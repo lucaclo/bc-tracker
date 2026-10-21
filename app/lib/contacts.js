@@ -1,6 +1,7 @@
 // Contacts: people you know (or could reach) at firms you're applying to. Pure functions
 // over the array kept in data/contacts.json — server.js does the reading and writing.
 const crypto = require('crypto');
+const companyMatch = require('../../extension/lib/companyMatch');
 
 const STATUSES = ['to-contact', 'messaged', 'replied', 'call-done', 'not-relevant'];
 
@@ -17,9 +18,10 @@ const USER_FIELDS = new Set(['status', 'lastContacted', 'notes']);
 // A re-capture is the freshest view of where someone works now, so these get replaced.
 const REFRESH_FIELDS = new Set(['title', 'company']);
 
-// Placeholder until the shared company matcher lands: one function so it can be swapped.
-function companyKey(company) {
-  return String(company || '').toLowerCase().trim();
+// The extension's matcher, so a contact captured in the browser and an application typed in
+// the app land on the same key ("J.P. Morgan" = "JPMorgan").
+function companyKey(company, userAliases) {
+  return companyMatch.companyKey(company, userAliases);
 }
 
 function clean(value) {
