@@ -61,7 +61,10 @@ function defaultProfile() {
     coverLetterFiles: [],
     workExperience: [],
     skills: [],
-    languages: []
+    languages: [],
+    // Raw company name as captured → the firm it really is, set when you assign an
+    // unrecognised contact (see app/lib/contacts.js).
+    companyAliases: {}
   };
 }
 
