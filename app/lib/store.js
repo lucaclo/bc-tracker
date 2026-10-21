@@ -2,10 +2,12 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
-const DATA_DIR = path.join(__dirname, '..', 'data');
+// BC_DATA_DIR lets tests run the real app against a throwaway folder.
+const DATA_DIR = process.env.BC_DATA_DIR || path.join(__dirname, '..', 'data');
 const PROFILE_PATH = path.join(DATA_DIR, 'profile.json');
 const APPLICATIONS_PATH = path.join(DATA_DIR, 'applications.json');
 const FLAG_LOG_PATH = path.join(DATA_DIR, 'flagLog.json');
+const CONTACTS_PATH = path.join(DATA_DIR, 'contacts.json');
 const CV_DIR = path.join(DATA_DIR, 'cv');
 const BACKUP_DIR = path.join(DATA_DIR, 'backups');
 const MAX_BACKUPS_PER_FILE = 20;
@@ -22,6 +24,9 @@ function ensureDataFiles() {
   }
   if (!fs.existsSync(FLAG_LOG_PATH)) {
     fs.writeFileSync(FLAG_LOG_PATH, JSON.stringify({}, null, 2));
+  }
+  if (!fs.existsSync(CONTACTS_PATH)) {
+    fs.writeFileSync(CONTACTS_PATH, JSON.stringify([], null, 2));
   }
 }
 
@@ -154,6 +159,15 @@ function saveApplications(applications) {
   return applications;
 }
 
+function getContacts() {
+  return readJson(CONTACTS_PATH);
+}
+
+function saveContacts(contacts) {
+  writeJson(CONTACTS_PATH, contacts);
+  return contacts;
+}
+
 // Flag log: which field labels the autofill engine had to flag for manual entry, and how
 // often. Not tied to a specific application — this is aggregate signal across the whole
 // application season for which FIELD_KEYWORDS/mappers are worth extending next. Keyed by
@@ -189,13 +203,17 @@ module.exports = {
   PROFILE_PATH,
   APPLICATIONS_PATH,
   FLAG_LOG_PATH,
+  CONTACTS_PATH,
   CV_DIR,
+  BACKUP_DIR,
   ensureDataFiles,
   defaultProfile,
   getProfile,
   saveProfile,
   getApplications,
   saveApplications,
+  getContacts,
+  saveContacts,
   getFlagLog,
   recordFlags
 };

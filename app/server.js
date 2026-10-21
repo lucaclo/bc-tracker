@@ -4,6 +4,7 @@ const express = require('express');
 const multer = require('multer');
 const ExcelJS = require('exceljs');
 const store = require('./lib/store');
+const contactsLib = require('./lib/contacts');
 
 const PORT = 5055;
 const app = express();
@@ -135,6 +136,59 @@ app.delete('/api/applications/:id', (req, res) => {
   const applications = store.getApplications().filter((a) => a.id !== req.params.id);
   store.saveApplications(applications);
   res.status(204).end();
+});
+
+// ---- Contacts ----
+
+app.get('/api/contacts', (req, res) => {
+  res.json(store.getContacts());
+});
+
+app.post('/api/contacts', (req, res) => {
+  const candidate = contactsLib.normaliseContact(req.body || {});
+  if (!candidate.name) return res.status(400).json({ error: 'A contact needs a name' });
+  const result = contactsLib.upsertContacts(store.getContacts(), [candidate]);
+  store.saveContacts(result.contacts);
+  const saved = result.contacts.find((c) => c.id === result.ids[0]);
+  res.status(result.created ? 201 : 200).json(saved);
+});
+
+// A capture or import: an array of contacts, merged into the store in one write.
+app.post('/api/contacts/bulk', (req, res) => {
+  const rows = Array.isArray(req.body) ? req.body : req.body?.contacts;
+  if (!Array.isArray(rows)) return res.status(400).json({ error: 'Send an array of contacts' });
+  const result = contactsLib.upsertContacts(store.getContacts(), rows);
+  if (result.created || result.merged) store.saveContacts(result.contacts);
+  res.json({ created: result.created, merged: result.merged, skipped: result.skipped, ids: result.ids });
+});
+
+app.put('/api/contacts/:id', (req, res) => {
+  const contacts = store.getContacts();
+  const idx = contacts.findIndex((c) => c.id === req.params.id);
+  if (idx === -1) return res.status(404).json({ error: 'Not found' });
+  const updated = contactsLib.updateContact(contacts[idx], req.body || {});
+  if (!updated.name) return res.status(400).json({ error: 'A contact needs a name' });
+  contacts[idx] = updated;
+  store.saveContacts(contacts);
+  res.json(updated);
+});
+
+app.delete('/api/contacts/:id', (req, res) => {
+  const contacts = store.getContacts();
+  const remaining = contacts.filter((c) => c.id !== req.params.id);
+  if (remaining.length === contacts.length) return res.status(404).json({ error: 'Not found' });
+  store.saveContacts(remaining);
+  res.status(204).end();
+});
+
+// Delete-by-source: everything captured from one group (e.g. a society list) in one go.
+app.delete('/api/contacts', (req, res) => {
+  const group = String(req.query.sourceGroup || '').trim();
+  if (!group) return res.status(400).json({ error: 'Pass ?sourceGroup= to delete a group' });
+  const contacts = store.getContacts();
+  const remaining = contacts.filter((c) => c.sourceGroup !== group);
+  if (remaining.length !== contacts.length) store.saveContacts(remaining);
+  res.json({ deleted: contacts.length - remaining.length });
 });
 
 // Column order for both exports: what you scan for first (who, what, where it stands,
@@ -374,17 +428,22 @@ app.get('/api/flags', (req, res) => {
   res.json(rows);
 });
 
-const server = app.listen(PORT, '127.0.0.1', () => {
-  console.log(`B.C Tracker app running at http://localhost:${PORT}`);
-});
+module.exports = app;
 
-// With autostart installed (npm run autostart:install) the app is normally already
-// running in the background, so a manual `npm start` just finds the port taken. That's
-// not an error worth a stack trace.
-server.on('error', (err) => {
-  if (err.code === 'EADDRINUSE') {
-    console.log(`B.C Tracker app is already running at http://localhost:${PORT} — nothing to do.`);
-    process.exit(0);
-  }
-  throw err;
-});
+// Tests require() the app and listen on a spare port themselves.
+if (require.main === module) {
+  const server = app.listen(PORT, '127.0.0.1', () => {
+    console.log(`B.C Tracker app running at http://localhost:${PORT}`);
+  });
+
+  // With autostart installed (npm run autostart:install) the app is normally already
+  // running in the background, so a manual `npm start` just finds the port taken. That's
+  // not an error worth a stack trace.
+  server.on('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+      console.log(`B.C Tracker app is already running at http://localhost:${PORT} — nothing to do.`);
+      process.exit(0);
+    }
+    throw err;
+  });
+}
