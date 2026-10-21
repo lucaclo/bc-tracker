@@ -1,3 +1,4 @@
+/* global renderContactList */
 const STATUSES = ['Bookmarked', 'Applying', 'Applied', 'Interviewing', 'Offer', 'Rejected'];
 // Statuses where an approaching deadline still matters.
 const OPEN_STATUSES = new Set(['Bookmarked', 'Applying']);
@@ -89,12 +90,17 @@ const emptyAction = document.getElementById('apps-empty-action');
 let statusVal = '';
 // Rows deleted but still inside their undo window: hidden here, not yet sent to the server.
 const pendingDeletes = new Map();
+// Contacts dropdowns: which rows are open, and each application's contacts once fetched.
+const openContacts = new Set();
+const contactsByApp = new Map();
+const TABLE_COLUMNS = document.querySelectorAll('#apps-table thead th').length;
 
 async function loadApplications() {
   try {
     const res = await fetch('/api/applications');
     if (!res.ok) throw new Error(`Server responded ${res.status}`);
     applications = await res.json();
+    contactsByApp.clear();
   } catch (err) {
     console.error('[BC] could not load applications', err);
     showToast('Could not load applications. Is the app (npm start) running?', { error: true, duration: 10000 });
@@ -197,6 +203,7 @@ function renderApplications() {
     tr.innerHTML = `
       <td class="company-cell">${escapeHtml(app.company)}</td>
       <td class="role-cell">${escapeHtml(app.role)}</td>
+      <td class="contacts-cell"></td>
       <td>${escapeHtml(app.region)}</td>
       <td>${escapeHtml(app.industry)}</td>
       <td></td>
@@ -213,7 +220,7 @@ function renderApplications() {
       </td>
     `;
 
-    const statusCell = tr.children[4];
+    const statusCell = tr.children[5];
     const select = document.createElement('select');
     select.className = `status-pill status-${app.status}`;
     select.setAttribute('aria-label', `Status for ${label}`);
@@ -241,7 +248,61 @@ function renderApplications() {
     tr.querySelector('.row-edit').addEventListener('click', () => openEditDialog(app));
 
     tbody.appendChild(tr);
+    renderContactsToggle(tr, app, label);
   }
+}
+
+// ---- Contacts dropdown on each application row ----
+// A "Contacts (n)" button that opens a row underneath listing the names; each name expands
+// to that person's full details. Contacts are fetched the first time a row is opened.
+function renderContactsToggle(tr, app, label) {
+  const n = app.contactCount || 0;
+  const cell = tr.querySelector('.contacts-cell');
+  const panelId = `contacts-for-${app.id}`;
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'contacts-toggle';
+  btn.textContent = `Contacts (${n})`;
+  btn.disabled = n === 0;
+  btn.setAttribute('aria-label', `${n} contact${n === 1 ? '' : 's'} at ${label}`);
+  btn.setAttribute('aria-expanded', String(n > 0 && openContacts.has(app.id)));
+  btn.setAttribute('aria-controls', panelId);
+  cell.appendChild(btn);
+  if (n === 0) return;
+
+  const row = document.createElement('tr');
+  row.className = 'contacts-row';
+  row.hidden = !openContacts.has(app.id);
+  row.innerHTML = `<td colspan="${TABLE_COLUMNS}"><div id="${panelId}" class="contacts-panel"></div></td>`;
+  tr.after(row);
+  const panel = row.querySelector('.contacts-panel');
+
+  const fill = async () => {
+    if (!contactsByApp.has(app.id)) {
+      panel.innerHTML = '<p class="muted">Loading contacts…</p>';
+      try {
+        const res = await fetch(`/api/applications/${app.id}/contacts`);
+        if (!res.ok) throw new Error(`Server responded ${res.status}`);
+        contactsByApp.set(app.id, await res.json());
+      } catch (err) {
+        console.error('[BC] could not load contacts', err);
+        panel.innerHTML = '<p class="save-msg save-msg-error">Could not load contacts. Is the app still running?</p>';
+        showToast(`Could not load contacts for ${app.company}.`, { error: true });
+        return;
+      }
+    }
+    renderContactList(panel, contactsByApp.get(app.id));
+  };
+
+  btn.addEventListener('click', () => {
+    const open = !openContacts.has(app.id);
+    if (open) openContacts.add(app.id);
+    else openContacts.delete(app.id);
+    btn.setAttribute('aria-expanded', String(open));
+    row.hidden = !open;
+    if (open) fill();
+  });
+  if (!row.hidden) fill();
 }
 
 async function updateApplication(id, patch) {
@@ -252,7 +313,9 @@ async function updateApplication(id, patch) {
   });
   if (!res.ok) throw new Error(`Server responded ${res.status}`);
   const updated = await res.json();
-  applications = applications.map((a) => (a.id === id ? updated : a));
+  // The company may have changed, so its contacts are fetched again next time.
+  contactsByApp.delete(id);
+  applications = applications.map((a) => (a.id === id ? { ...updated, contactCount: a.contactCount } : a));
 }
 
 // Delete hides the row at once and offers Undo; the server DELETE only goes out when the
@@ -368,6 +431,8 @@ addForm.addEventListener('submit', async (e) => {
     }
     renderApplications();
     addDialog.close();
+    // Contact counts depend on the company name, so pick up the server's fresh counts.
+    loadApplications();
   } catch (err) {
     console.error('[BC] application save failed', err);
     addDialogMsg.textContent = 'Could not save. Is the app still running? Your entries are unchanged, so try again.';
