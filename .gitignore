@@ -5,3 +5,4 @@ app/data/cv/*
 !app/data/cv/.gitkeep
 *.xlsx
 .DS_Store
+app/data/*.log

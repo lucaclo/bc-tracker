@@ -189,7 +189,11 @@
       for (const { el, field, expected } of fields) {
         const dupKey = `${field}::${FM.normalizeForMatch(expected)}`;
         const claimedBy = claimedValues.get(dupKey);
-        if (claimedBy && claimedBy !== blockKey) {
+        // Several saved entries can genuinely share a value (three jobs in "Hong Kong") —
+        // only a value shown on more blocks than the profile has entries for is a mix-up.
+        const sharedInProfile =
+          entries.filter((entry) => FM.normalizeForMatch(getComparableValue(entry, field, entityKind)) === FM.normalizeForMatch(expected)).length > 1;
+        if (claimedBy && claimedBy !== blockKey && !sharedInProfile) {
           issueEls.add(el);
           FM.markVerifyIssue(
             el,

@@ -8,8 +8,16 @@
 <body>
   <header>
     <strong>B.C Tracker</strong>
+    <span id="version" class="version"></span>
+    <a id="open-tracker" class="tracker-link" href="http://localhost:5055" target="_blank" rel="noopener">Open tracker ↗</a>
     <span id="app-status" class="status-dot" title="Local app status"></span>
   </header>
+
+  <p id="app-down" class="banner" role="alert" hidden>
+    The local B.C Tracker app isn't running, so filling and logging can't reach it.
+    Anything you log is kept here and sent automatically once it's back.
+    To start it now, run <code>npm start</code> in <code>app/</code>. To keep it always on, run <code>npm run autostart:install</code> once.
+  </p>
 
   <section class="block">
     <button id="fill-btn" class="btn">Fill this page</button>
@@ -26,6 +34,11 @@
   <section class="block">
     <h2>Log this application</h2>
     <p class="hint" id="context-hint"></p>
+    <div class="context-actions">
+      <button type="button" id="read-page-btn" class="link-btn">Read this job page</button>
+      <button type="button" id="use-stale-btn" class="link-btn" hidden>Use it anyway</button>
+    </div>
+    <p class="hint missing-hint" id="missing-hint" role="status" hidden></p>
     <form id="log-form">
       <label>Company <input name="company" required /></label>
       <label>Role / Program <input name="role" required /></label>
@@ -51,6 +64,7 @@
       <label>Notes <textarea name="notes" rows="2"></textarea></label>
       <button type="submit" class="btn">Log application</button>
       <p id="log-msg" class="hint"></p>
+      <p id="pending-hint" class="hint pending-hint" hidden></p>
     </form>
   </section>
 

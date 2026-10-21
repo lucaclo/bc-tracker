@@ -11,7 +11,7 @@
     preferredName: ['preferred name', 'nickname', 'goes by', 'known as'],
     dateOfBirth: ['date of birth', 'birth date', 'dob'],
     email: ['email address', 'e-mail', 'email'],
-    phoneCountryCode: ['country code', 'phone country code', 'dial code'],
+    phoneCountryCode: ['country code', 'phone country code', 'country phone code', 'phone code', 'dial code', 'dialing code', 'calling code'],
     phoneNumber: [
       'phone number',
       'mobile number',
@@ -243,16 +243,35 @@
     return null;
   }
 
+  // Labels that CONTAIN a profile keyword but ask for something the profile doesn't hold.
+  // Confirmed live on Workday (Brown Advisory, 2026-10-09): "Phone Extension" matched
+  // 'phone' and got the phone number's digits; "Phone Device Type" and "Country Phone
+  // Code" matched 'phone'/'country'. Never fill these from the profile.
+  const NOT_A_PROFILE_FIELD = /\b(extension|ext|device type|phone type|type of phone)\b/;
+
+  // Whole words only: 'town' must not match "hometown", 'city' not "ethnicity",
+  // 'major' not "majority".
+  const keywordRegexCache = new Map();
+  function hasKeyword(normalized, kw) {
+    let re = keywordRegexCache.get(kw);
+    if (!re) {
+      re = new RegExp(`(^|[^a-z0-9])${kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}($|[^a-z0-9])`);
+      keywordRegexCache.set(kw, re);
+    }
+    return re.test(normalized);
+  }
+
   function matchCanonicalField(labelText) {
     const normalized = normalize(labelText);
     if (!normalized) return null;
+    if (NOT_A_PROFILE_FIELD.test(normalized)) return null;
 
     let best = null; // { key, len }
     let bestIsAmbiguous = false;
 
     for (const [key, keywords] of Object.entries(FIELD_KEYWORDS)) {
       for (const kw of keywords) {
-        if (normalized.includes(kw)) {
+        if (hasKeyword(normalized, kw)) {
           if (!best || kw.length > best.len) {
             best = { key, len: kw.length };
             bestIsAmbiguous = false;

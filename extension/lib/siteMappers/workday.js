@@ -27,7 +27,7 @@
       ];
       for (const [selector, key] of textMap) {
         const el = document.querySelector(selector);
-        if (!el) continue;
+        if (!el || el.dataset.wsoFilled === '1') continue;
         const value = FM.resolveProfileValue(profile, key);
         if (value && FM.fillTextLike(el, value)) FM.markFilled(el);
       }
@@ -45,7 +45,7 @@
       // a flag, same as before.
       const dropdownTriggers = Array.from(document.querySelectorAll('button[aria-haspopup="listbox"]'));
       for (const el of dropdownTriggers) {
-        if (el.dataset.wsoFilled === '1' || el.classList.contains('wso-flagged')) continue;
+        if (el.dataset.wsoFilled === '1' || el.classList.contains('wso-flagged') || el.dataset.wsoSkip === '1') continue;
         const stillUnset = !el.textContent.trim() || /^select one$/i.test(el.textContent.trim());
         if (!stillUnset) continue; // already has a real selection — nothing to do
 

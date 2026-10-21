@@ -74,9 +74,31 @@ chrome.commands.onCommand.addListener((command, tab) => {
   chrome.sidePanel.open({ windowId: tab.windowId }).catch(() => {
     // Not critical — the fill still proceeds; the panel can be opened from the toolbar.
   });
-  chrome.tabs.sendMessage(tab.id, { type: 'WSO_RUN_FILL' }).catch(() => {
-    // No content script on this tab (chrome:// page, tracker page, etc.) — nothing to fill.
+  chrome.tabs.sendMessage(tab.id, { type: 'WSO_RUN_FILL' }).catch(async () => {
+    // No live content script: either a page we never run on (chrome://, the tracker) or a
+    // tab opened before the extension was reloaded. Set the latter up now and retry.
+    try {
+      await chrome.scripting.insertCSS({ target: { tabId: tab.id }, files: ['content/autofill.css'] });
+      await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: FILL_FILES });
+      await chrome.tabs.sendMessage(tab.id, { type: 'WSO_RUN_FILL' });
+    } catch (_) {
+      /* genuinely not a page we can fill */
+    }
   });
 });
+
+// Same list and order as manifest.json's <all_urls> content script (and popup.js).
+const FILL_FILES = [
+  'lib/fieldMap.js',
+  'lib/comboboxFill.js',
+  'lib/fillVerifier.js',
+  'lib/blockFill.js',
+  'lib/siteMappers/workday.js',
+  'lib/siteMappers/greenhouse.js',
+  'lib/siteMappers/lever.js',
+  'content/autofill.js',
+  'lib/dates.js',
+  'content/job-page-reader.js'
+];
 
 chrome.tabs.onRemoved.addListener((tabId) => tabResults.delete(tabId));
