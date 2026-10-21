@@ -71,6 +71,12 @@ test('merges on the same linkedinUrl', async () => {
   assert.equal(res.body.merged, 1);
 });
 
+test('name + company merge uses the shared matcher (J.P. Morgan = JPMorgan)', async () => {
+  await api('POST', '/api/contacts/bulk', [{ name: 'Sam Smith', company: 'J.P. Morgan' }]);
+  const res = await api('POST', '/api/contacts/bulk', [{ name: 'Sam Smith', company: 'JPMorgan Chase & Co.' }]);
+  assert.equal(res.body.merged, 1);
+});
+
 test('same name at a different company is a different person', async () => {
   await api('POST', '/api/contacts/bulk', [{ name: 'Sam Smith', company: 'UBS' }]);
   const res = await api('POST', '/api/contacts/bulk', [{ name: 'Sam Smith', company: 'HSBC' }]);
@@ -95,7 +101,7 @@ test('merge keeps status, notes and last contacted; fills blanks; refreshes titl
   assert.equal(jo.location, 'London');
   assert.equal(jo.title, 'Associate');
   assert.equal(jo.company, 'PJT Partners');
-  assert.equal(jo.companyKey, 'pjt partners');
+  assert.equal(jo.companyKey, 'pjt');
 });
 
 test('delete by source group removes only that group', async () => {
