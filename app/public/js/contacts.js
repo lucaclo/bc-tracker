@@ -1,6 +1,6 @@
 // Contact rendering shared by the Applications table's Contacts dropdown and the Contacts tab.
 // Loaded before app.js; uses its escapeHtml/escapeAttr/showToast at call time.
-/* global escapeHtml, escapeAttr, showToast, formatDate, loadApplications */
+/* global escapeHtml, escapeAttr, showToast, formatDate, loadApplications, BC_ContactImport */
 /* exported renderContactList, renderContactDetail, CONTACT_STATUSES, loadContactsTab */
 
 const CONTACT_STATUSES = [
@@ -459,5 +459,111 @@ document.getElementById('delete-source-form').addEventListener('submit', async (
     msg.textContent = 'Could not delete. Is the app still running? Nothing was removed.';
     msg.classList.add('save-msg-error');
     confirmDeleteSource.disabled = false;
+  }
+});
+
+// ---- Import (CSV file or pasted rows) ----
+const importDialog = document.getElementById('import-dialog');
+const importFile = document.getElementById('import-file');
+const importPaste = document.getElementById('import-paste');
+const importSource = document.getElementById('import-source');
+const importSubmit = document.getElementById('import-submit');
+const importMsg = document.getElementById('import-msg');
+const PREVIEW_ROWS = 10;
+let importState = null; // { headers, rows, mapping }
+
+document.getElementById('import-contacts-btn').addEventListener('click', () => {
+  document.getElementById('import-form').reset();
+  importState = null;
+  importMsg.textContent = '';
+  importMsg.classList.remove('save-msg-error');
+  renderImportPreview();
+  importDialog.showModal();
+});
+document.getElementById('cancel-import').addEventListener('click', () => importDialog.close());
+
+function loadImportText(text) {
+  importState = text.trim() ? BC_ContactImport.parseImport(text) : null;
+  renderImportPreview();
+}
+
+importFile.addEventListener('change', async () => {
+  const file = importFile.files[0];
+  if (!file) return;
+  importPaste.value = '';
+  loadImportText(await file.text());
+});
+importPaste.addEventListener('input', () => {
+  importFile.value = '';
+  loadImportText(importPaste.value);
+});
+
+function renderImportPreview() {
+  const preview = document.getElementById('import-preview');
+  importSubmit.disabled = true;
+  if (!importState || !importState.headers.length) {
+    preview.hidden = true;
+    return;
+  }
+  preview.hidden = false;
+  const { headers, rows, mapping } = importState;
+
+  const mappingEl = document.getElementById('import-mapping');
+  mappingEl.innerHTML = headers.map((h, i) => `
+    <label>${escapeHtml(h) || `<span class="muted">Column ${i + 1}</span>`}
+      <select data-col="${i}">${BC_ContactImport.TARGETS
+        .map(([v, l]) => `<option value="${v}"${v === mapping[i] ? ' selected' : ''}>${l}</option>`).join('')}</select>
+    </label>`).join('');
+  mappingEl.querySelectorAll('select').forEach((sel) => sel.addEventListener('change', () => {
+    importState.mapping[Number(sel.dataset.col)] = sel.value;
+    renderImportPreview();
+  }));
+
+  const { contacts, skipped } = BC_ContactImport.rowsToContacts(rows, mapping, importSource.value.trim());
+  const summary = [`${contacts.length} contact${contacts.length === 1 ? '' : 's'} to import`];
+  // Row numbers as they appear in the pasted table (1 = first row after the header).
+  if (skipped.length) {
+    const list = skipped.slice(0, 8).map((i) => i + 1).join(', ') + (skipped.length > 8 ? '…' : '');
+    summary.push(`${skipped.length} row${skipped.length === 1 ? '' : 's'} without a name will be skipped (row ${list})`);
+  }
+  if (!mapping.some((t) => t === 'name' || t === 'firstName' || t === 'lastName')) {
+    summary.push('Set which column holds the name');
+  }
+  document.getElementById('import-summary').textContent = summary.join(' · ');
+
+  const cols = [['name', 'Name'], ['title', 'Title'], ['company', 'Company'], ['email', 'Email'], ['linkedinUrl', 'LinkedIn'], ['sourceGroup', 'Source group']];
+  document.getElementById('import-table').innerHTML = `
+    <thead><tr>${cols.map(([, l]) => `<th>${l}</th>`).join('')}</tr></thead>
+    <tbody>${contacts.slice(0, PREVIEW_ROWS)
+      .map((c) => `<tr>${cols.map(([k]) => `<td>${escapeHtml(c[k])}</td>`).join('')}</tr>`).join('')}</tbody>`;
+  importSubmit.disabled = contacts.length === 0;
+  importSubmit.textContent = contacts.length ? `Import ${contacts.length}` : 'Import';
+}
+importSource.addEventListener('input', renderImportPreview);
+
+document.getElementById('import-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  if (!importState) return;
+  const { contacts, skipped } = BC_ContactImport.rowsToContacts(importState.rows, importState.mapping, importSource.value.trim());
+  if (!contacts.length) return;
+  importSubmit.disabled = true;
+  try {
+    const res = await fetch('/api/contacts/bulk', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(contacts)
+    });
+    if (!res.ok) throw new Error(`Server responded ${res.status}`);
+    const result = await res.json();
+    const skippedTotal = skipped.length + result.skipped;
+    importDialog.close();
+    showToast(`Imported: ${result.created} new, ${result.merged} merged with existing, ${skippedTotal} skipped (no name)`, { duration: 8000 });
+    await loadContactsTab();
+    loadApplications();
+  } catch (err) {
+    console.error('[BC] import failed', err);
+    importMsg.textContent = 'Could not import. Is the app still running? Nothing was saved, so try again.';
+    importMsg.classList.add('save-msg-error');
+    importSubmit.disabled = false;
   }
 });

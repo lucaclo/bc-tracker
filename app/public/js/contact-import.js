@@ -64,7 +64,7 @@
     let row = [];
     let field = '';
     let quoted = false;
-    const s = String(text || '').replace(/^﻿/, '');
+    const s = String(text || '').replace(/^\uFEFF/, '');
     for (let i = 0; i < s.length; i++) {
       const ch = s[i];
       if (quoted) {

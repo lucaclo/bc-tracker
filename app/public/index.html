@@ -68,6 +68,7 @@
         <select id="contact-filter-status" aria-label="Filter by status"><option value="">All statuses</option></select>
         <div class="spacer"></div>
         <button type="button" id="delete-source-btn" class="btn btn-secondary">Delete a source…</button>
+        <button type="button" id="import-contacts-btn" class="btn btn-secondary">Import…</button>
         <button type="button" id="add-contact-btn" class="btn">Add contact</button>
       </div>
 
@@ -372,6 +373,37 @@
     </form>
   </dialog>
 
+  <dialog id="import-dialog" class="wide-dialog" aria-labelledby="import-title">
+    <form id="import-form" method="dialog">
+      <h2 id="import-title">Import contacts</h2>
+      <p class="hint">
+        A CSV with a header row, such as a society member list or LinkedIn's own export
+        (LinkedIn → Settings → Data privacy → Get a copy of your data → Connections), or rows
+        pasted straight from a spreadsheet.
+      </p>
+      <div class="grid">
+        <label>CSV file <input type="file" id="import-file" accept=".csv,.tsv,.txt,text/csv,text/tab-separated-values" /></label>
+        <label>Source group for this batch
+          <input id="import-source" list="source-options" placeholder="Finance Society, LinkedIn…" />
+        </label>
+        <label class="span-2">…or paste rows here <textarea id="import-paste" rows="4" placeholder="Name, Company, Title…"></textarea></label>
+      </div>
+      <div id="import-preview" hidden>
+        <h3>Columns</h3>
+        <p class="hint">Check what each column holds. Columns set to Ignore aren't imported.</p>
+        <div id="import-mapping" class="import-mapping"></div>
+        <h3>Preview</h3>
+        <p id="import-summary" class="hint"></p>
+        <div class="table-wrap"><table id="import-table"></table></div>
+      </div>
+      <div class="dialog-actions">
+        <span id="import-msg" class="save-msg" role="alert"></span>
+        <button type="button" id="cancel-import" class="btn btn-secondary">Cancel</button>
+        <button type="submit" id="import-submit" class="btn" disabled>Import</button>
+      </div>
+    </form>
+  </dialog>
+
   <datalist id="company-options"></datalist>
   <datalist id="source-options"></datalist>
 
@@ -380,6 +412,7 @@
     <button type="button" id="toast-action" class="toast-action" hidden></button>
   </div>
 
+  <script src="js/contact-import.js"></script>
   <script src="js/contacts.js"></script>
   <script src="js/app.js"></script>
 </body>
