@@ -15,6 +15,9 @@
       <button class="tab-btn active" role="tab" aria-selected="true" aria-controls="tab-applications" data-tab="applications">
         Applications <span id="apps-count" class="tab-count"></span>
       </button>
+      <button class="tab-btn" role="tab" aria-selected="false" aria-controls="tab-contacts" data-tab="contacts" tabindex="-1">
+        Contacts <span id="contacts-count" class="tab-count"></span>
+      </button>
       <button class="tab-btn" role="tab" aria-selected="false" aria-controls="tab-profile" data-tab="profile" tabindex="-1">Profile</button>
       <button class="tab-btn" role="tab" aria-selected="false" aria-controls="tab-insights" data-tab="insights" tabindex="-1">Autofill insights</button>
     </nav>
@@ -53,6 +56,55 @@
         <div id="apps-empty" class="empty-state" hidden>
           <p id="apps-empty-text"></p>
           <button type="button" id="apps-empty-action" class="btn btn-secondary"></button>
+        </div>
+      </div>
+    </section>
+
+    <section id="tab-contacts" class="tab-panel" role="tabpanel">
+      <div class="toolbar">
+        <input id="contact-search" type="search" placeholder="Search names…" aria-label="Search contacts by name" />
+        <select id="contact-filter-company" aria-label="Filter by company"><option value="">All companies</option></select>
+        <select id="contact-filter-source" aria-label="Filter by source group"><option value="">All sources</option></select>
+        <select id="contact-filter-status" aria-label="Filter by status"><option value="">All statuses</option></select>
+        <div class="spacer"></div>
+        <button type="button" id="delete-source-btn" class="btn btn-secondary">Delete a source…</button>
+        <button type="button" id="add-contact-btn" class="btn">Add contact</button>
+      </div>
+
+      <section id="unassigned-panel" class="unassigned-panel" aria-labelledby="unassigned-title" hidden>
+        <h2 id="unassigned-title">Unassigned <span id="unassigned-count" class="tab-count"></span></h2>
+        <p class="hint">
+          These people work at a firm that matches none of your applications and isn't a name the
+          app recognises. Say which company each one is. The app remembers that name, so anyone
+          else captured under it links automatically.
+        </p>
+        <ul id="unassigned-list" class="unassigned-list"></ul>
+      </section>
+
+      <div class="table-wrap">
+        <table id="contacts-table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Title</th>
+              <th>Company</th>
+              <th>Source group</th>
+              <th>Status</th>
+              <th>Last contacted</th>
+              <th class="actions-col"><span class="visually-hidden">Actions</span></th>
+            </tr>
+          </thead>
+          <tbody id="contacts-tbody"></tbody>
+        </table>
+        <div id="contacts-empty" class="empty-state" hidden>
+          <p id="contacts-empty-text"></p>
+          <ul id="contacts-empty-ways" class="empty-ways">
+            <li><strong>Add by hand:</strong> the Add contact button above.</li>
+            <li><strong>Import:</strong> a CSV from a society member list or LinkedIn's own data export.</li>
+            <li><strong>Capture:</strong> open a directory page you're logged in to (an alumni network,
+              LinkedIn search, WSO) and click <em>Capture contacts</em> in the extension's side panel.</li>
+          </ul>
+          <button type="button" id="contacts-empty-action" class="btn btn-secondary"></button>
         </div>
       </div>
     </section>
@@ -277,6 +329,51 @@
       </div>
     </form>
   </dialog>
+
+  <dialog id="contact-dialog" aria-labelledby="contact-dialog-title">
+    <form id="contact-form" method="dialog">
+      <h2 id="contact-dialog-title">Add contact</h2>
+      <div class="grid">
+        <label>Name <input name="name" required /></label>
+        <label>Title <input name="title" /></label>
+        <label>Company <input name="company" list="company-options" /></label>
+        <label>Team <input name="team" /></label>
+        <label>Location <input name="location" /></label>
+        <label>Email <input type="email" name="email" /></label>
+        <label>LinkedIn URL <input type="url" name="linkedinUrl" placeholder="https://www.linkedin.com/in/…" /></label>
+        <label>Profile URL <input type="url" name="profileUrl" placeholder="Their page on the network you found them on" /></label>
+        <label>Source group <input name="sourceGroup" list="source-options" placeholder="Old Wellingtonian, Finance Society…" /></label>
+        <label>School <input name="school" /></label>
+        <label>Grad year <input name="gradYear" inputmode="numeric" /></label>
+        <label>Society <input name="society" /></label>
+        <label>Status <select name="status"></select></label>
+        <label>Last contacted <input type="date" name="lastContacted" /></label>
+        <label class="span-2">Notes <textarea name="notes" rows="3"></textarea></label>
+      </div>
+      <div class="dialog-actions">
+        <span id="contact-msg" class="save-msg" role="alert"></span>
+        <button type="button" id="cancel-contact" class="btn btn-secondary">Cancel</button>
+        <button type="submit" id="save-contact" class="btn">Add contact</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="delete-source-dialog" aria-labelledby="delete-source-title">
+    <form id="delete-source-form" method="dialog">
+      <h2 id="delete-source-title">Delete everything from one source</h2>
+      <p class="hint">Removes every contact saved under that source group. This can't be undone
+        from the app (the previous file is kept in <code>app/data/backups/</code>).</p>
+      <label>Source group <select name="sourceGroup" id="delete-source-select" required></select></label>
+      <div class="dialog-actions">
+        <span id="delete-source-msg" class="save-msg" role="alert"></span>
+        <button type="button" id="cancel-delete-source" class="btn btn-secondary">Cancel</button>
+        <button type="submit" id="confirm-delete-source" class="btn btn-danger">Delete</button>
+      </div>
+    </form>
+  </dialog>
+
+  <datalist id="company-options"></datalist>
+  <datalist id="source-options"></datalist>
 
   <div id="toast" class="toast" role="status" aria-live="polite" hidden>
     <span id="toast-text"></span>
