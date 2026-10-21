@@ -1,4 +1,4 @@
-/* global renderContactList */
+/* global renderContactList, loadContactsTab */
 const STATUSES = ['Bookmarked', 'Applying', 'Applied', 'Interviewing', 'Offer', 'Rejected'];
 // Statuses where an approaching deadline still matters.
 const OPEN_STATUSES = new Set(['Bookmarked', 'Applying']);
@@ -20,6 +20,7 @@ function selectTab(name, { focus = false } = {}) {
   if (focus) btn.focus();
   if (location.hash.slice(1) !== btn.dataset.tab) history.replaceState(null, '', `#${btn.dataset.tab}`);
   if (btn.dataset.tab === 'insights') loadInsights();
+  if (btn.dataset.tab === 'contacts') loadContactsTab();
 }
 
 tabButtons.forEach((btn, i) => {
