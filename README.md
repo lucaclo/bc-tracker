@@ -61,6 +61,18 @@ You should see `B.C Tracker app running at http://localhost:5055`. Open
 http://localhost:5055 in Chrome. If that page says "refused to connect", the app isn't
 running — go back to this step.
 
+**Recommended on a Mac: keep it running permanently** so you never have to remember step 3:
+
+```
+npm run autostart:install
+```
+
+This starts the app now, again every time you log in, and restarts it within ~10 seconds
+if it ever stops. You can close the Terminal window afterwards. Undo with
+`npm run autostart:uninstall`. The output goes to `app/data/server.log`. If you log an
+application while the app is down anyway, the side panel keeps the entry and sends it
+automatically when the app comes back.
+
 **4. Fill in your Profile**
 
 On the app's **Profile** tab, enter your own personal info, address, education, work
@@ -111,11 +123,34 @@ a copy of Trackr's page structure.
   is never silently reported as complete.
 - Review the whole form yourself, then submit it manually — the extension never touches
   Submit/Continue/Next buttons.
+- Clicking **Apply** on any job posting (a Workday, Greenhouse or Lever page, or a firm's
+  own careers site) also captures that posting's title, company, location → country and
+  closing date. If you got there from a tracker row in the last few hours for the same
+  firm, the two are merged: the tracker's industry/region win and the job page fills in
+  whatever the tracker didn't have (usually the deadline). Missed the Apply click? Use
+  **Read this job page** in the side panel.
 - Click **Log application** in the side panel to save it to your tracker. It's pre-filled
-  from the row you last clicked "Apply" on (WSO or Trackr).
+  from the last Apply you clicked. A capture older than 6 hours, or one from a different
+  job site than the tab you're on, is *not* pre-filled (the panel says why and offers
+  "Use it anyway"), so an old application's details never end up on a new one.
 - See everything, sort/filter, edit status, or export to CSV/XLSX from the app's
   **Applications** tab. The XLSX export is a formatted Excel table (striped rows, colour-
   coded status, deadline warnings) with a Summary sheet of counts by status and industry.
+
+## Accuracy rule: your profile is the only source
+
+Everything B.C Tracker types into an application comes from your **Profile** page, nothing
+else. On numbered sections (Workday's "Work Experience 1…N", "Education 1…N") each card is
+rebuilt from the matching profile entry. Card 2 is your second saved job, in full: fields
+your profile leaves blank are **cleared** (and listed under "worth a second look"), so text
+the site put there can't survive. After filling, every field is read back. Anything the site
+didn't accept is flagged with the exact value it should have, and so is a card with no
+matching profile entry ("delete this card") or a profile entry with no card ("click Add
+Another").
+
+On Workday, choose **Apply Manually** rather than "Autofill with Resume". Workday's CV parser
+regularly invents entries (e.g. a "LEADERSHIP" job) and merges lines from one job into
+another. B.C Tracker will overwrite and flag them, but starting clean is simpler.
 
 ## What's intentionally best-effort
 

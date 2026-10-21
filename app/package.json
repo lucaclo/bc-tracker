@@ -7,7 +7,9 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "test": "node --test test/*.test.js"
+    "test": "node --test test/*.test.js",
+    "autostart:install": "sh scripts/autostart.sh install",
+    "autostart:uninstall": "sh scripts/autostart.sh uninstall"
   },
   "dependencies": {
     "cors": "^2.8.5",

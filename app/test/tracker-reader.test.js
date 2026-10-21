@@ -9,6 +9,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { JSDOM } = require('jsdom');
 
+const DATES_SRC = fs.readFileSync(path.join(__dirname, '..', '..', 'extension', 'lib', 'dates.js'), 'utf8');
 const READER_SRC = fs.readFileSync(
   path.join(__dirname, '..', '..', 'extension', 'content', 'tracker-reader.js'),
   'utf8'
@@ -58,6 +59,7 @@ function trackrPage({ heading = 'UK Finance Tracker', pathname = '/uk-finance/su
   const stored = [];
   dom.window.chrome = { storage: { local: { set: (v) => stored.push(v.trackerLastCapturedContext) } } };
   dom.window.console = { log() {}, warn() {}, error: console.error };
+  dom.window.eval(DATES_SRC);
   dom.window.eval(READER_SRC);
   return { window: dom.window, document: dom.window.document, stored, reader: dom.window.WSO_TrackerReader };
 }

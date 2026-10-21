@@ -611,6 +611,16 @@
 
     const CF = window.WSO_ComboboxFill;
 
+    // Numbered cards ("Work Experience 2", "Education 1") first: each card is rebuilt
+    // entirely from its own profile entry — see lib/blockFill.js. Runs before the site
+    // mapper so the mapper's dropdown sweep leaves those cards' widgets alone.
+    let cardsHandled = {};
+    try {
+      cardsHandled = await window.WSO_BlockFill.run(effectiveProfile, FM, CF, getScanRoot());
+    } catch (e) {
+      console.error('BC: card fill failed, falling back to the per-field passes', e);
+    }
+
     for (const mapper of Object.values(window.WSO_SiteMappers || {})) {
       if (mapper.test()) {
         // A site mapper failing must not stop the generic pass (and its file-upload
@@ -624,8 +634,8 @@
       }
     }
 
-    runExperiencePass(effectiveProfile, FM);
-    runEducationPass(effectiveProfile, FM);
+    if (!cardsHandled.experience) runExperiencePass(effectiveProfile, FM);
+    if (!cardsHandled.education) runEducationPass(effectiveProfile, FM);
     runLanguagePass(effectiveProfile, FM);
     await runGenericPass(effectiveProfile, FM, CF);
 
@@ -683,7 +693,13 @@
     return result;
   }
 
+  // Same "newest copy wins" rule as job-page-reader.js, for when the side panel injects
+  // the fill engine into a tab that still holds a disconnected copy from before a reload.
+  const token = {};
+  window.__WSO_AUTOFILL_TOKEN = token;
+
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (window.__WSO_AUTOFILL_TOKEN !== token) return false;
     if (message.type === 'WSO_RUN_FILL') {
       runFill().then(sendResponse);
       return true; // async response

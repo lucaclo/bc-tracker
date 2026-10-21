@@ -374,6 +374,17 @@ app.get('/api/flags', (req, res) => {
   res.json(rows);
 });
 
-app.listen(PORT, '127.0.0.1', () => {
+const server = app.listen(PORT, '127.0.0.1', () => {
   console.log(`B.C Tracker app running at http://localhost:${PORT}`);
+});
+
+// With autostart installed (npm run autostart:install) the app is normally already
+// running in the background, so a manual `npm start` just finds the port taken. That's
+// not an error worth a stack trace.
+server.on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    console.log(`B.C Tracker app is already running at http://localhost:${PORT} — nothing to do.`);
+    process.exit(0);
+  }
+  throw err;
 });

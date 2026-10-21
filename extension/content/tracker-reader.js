@@ -269,41 +269,8 @@
     return '';
   }
 
-  const MONTHS = { jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5, jul: 6, aug: 7, sep: 8, sept: 8, oct: 9, nov: 10, dec: 11 };
-  const monthIndex = (word) => MONTHS[word.slice(0, 4)] ?? MONTHS[word.slice(0, 3)];
-
-  // Tracker dates → YYYY-MM-DD in LOCAL time. Handles Trackr's "31 Jan 27", WSO's
-  // "Aug 07" (no year: the next occurrence from today), and ISO / "31/01/2027" (UK
-  // day-first). Returns '' if unparseable rather than guessing.
-  function toISODate(text) {
-    const s = (text || '').trim().toLowerCase().replace(/,/g, '');
-    if (!s) return '';
-    const pad = (n) => String(n).padStart(2, '0');
-    const out = (y, m, d) => {
-      const date = new Date(y, m, d);
-      if (date.getMonth() !== m || date.getDate() !== d) return '';
-      return `${date.getFullYear()}-${pad(m + 1)}-${pad(d)}`;
-    };
-    const fullYear = (y) => (y.length === 2 ? 2000 + Number(y) : Number(y));
-    let m;
-    if ((m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s))) return out(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
-    if ((m = /^(\d{1,2})[/.](\d{1,2})[/.](\d{2,4})$/.exec(s))) return out(fullYear(m[3]), Number(m[2]) - 1, Number(m[1]));
-    if ((m = /^(\d{1,2})(?:st|nd|rd|th)? ([a-z]{3,9})\.? (\d{2,4})$/.exec(s))) {
-      const mon = monthIndex(m[2]);
-      return mon === undefined ? '' : out(fullYear(m[3]), mon, Number(m[1]));
-    }
-    if ((m = /^([a-z]{3,9})\.? (\d{1,2})(?:st|nd|rd|th)?(?: (\d{2,4}))?$/.exec(s))) {
-      const mon = monthIndex(m[1]);
-      if (mon === undefined) return '';
-      if (m[3]) return out(fullYear(m[3]), mon, Number(m[2]));
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      let year = today.getFullYear();
-      if (new Date(year, mon, Number(m[2])) < today) year += 1;
-      return out(year, mon, Number(m[2]));
-    }
-    return '';
-  }
+  // Shared with job-page-reader.js — see lib/dates.js (loaded before this file).
+  const { toISODate } = window.WSO_Dates;
 
   function readRow(table, headerIndex, tr) {
     const cells = Array.from(tr.querySelectorAll('td'));
@@ -381,7 +348,14 @@
       // leads to the actual application.
       let node = target;
       while (node && node !== tr) {
-        if (looksLikeCaptureControl(node, tr, headerIndex)) return readRow(table, headerIndex, tr);
+        if (looksLikeCaptureControl(node, tr, headerIndex)) {
+          const data = readRow(table, headerIndex, tr);
+          // Where the click leads — job-page-reader.js uses its host to recognize the
+          // same application when Apply is pressed again on the company's own site.
+          const link = node.closest('a[href]');
+          if (link) data.applyUrl = link.href;
+          return data;
+        }
         node = node.parentElement;
       }
     }
