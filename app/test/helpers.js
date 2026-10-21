@@ -35,7 +35,10 @@ async function startApp() {
   }
 
   async function stop() {
-    await new Promise((resolve) => server.close(resolve));
+    await new Promise((resolve) => {
+      server.close(resolve);
+      server.closeAllConnections(); // don't wait on keep-alive sockets
+    });
     fs.rmSync(dataDir, { recursive: true, force: true });
   }
 
