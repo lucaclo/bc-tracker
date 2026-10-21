@@ -452,22 +452,68 @@ async function readContactsFromTab() {
   return chrome.tabs.sendMessage(activeTab.id, { type: 'BC_READ_CONTACTS' });
 }
 
-document.getElementById('capture-btn').addEventListener('click', async () => {
+const multiBox = document.getElementById('multi-page');
+const multiPages = document.getElementById('multi-pages');
+const multiWarning = document.getElementById('multi-warning');
+const stopBtn = document.getElementById('capture-stop');
+const captureBtn = document.getElementById('capture-btn');
+const MAX_PAGES = 25;
+// Off by default, every time the panel opens: it's a per-run choice.
+multiBox.checked = false;
+multiBox.addEventListener('change', () => {
+  document.getElementById('multi-pages-label').hidden = !multiBox.checked;
+});
+
+const capturableUrl = (url) => /^https?:/.test(url) && !/^(localhost|127\.0\.0\.1)$/.test(hostOf(url));
+
+captureBtn.addEventListener('click', async () => {
   const url = activeTab?.url || '';
-  if (!/^https?:/.test(url) || /^(localhost|127\.0\.0\.1)$/.test(hostOf(url))) {
+  if (!capturableUrl(url)) {
     captureMsg.textContent = "Open the directory page you want to capture from first (this can't read the app itself or chrome:// pages).";
     return;
   }
-  captureMsg.textContent = 'Reading this page…';
-  let res;
+  if (!multiBox.checked) return captureOnePage();
+  // First multi-page run on each site needs an explicit OK to the terms warning.
+  const accepted = (await chrome.storage.local.get('multiPageAccepted')).multiPageAccepted || {};
+  if (accepted[hostOf(url)]) return captureManyPages();
+  multiWarning.hidden = false;
+  captureBtn.hidden = true;
+});
+
+document.getElementById('multi-accept').addEventListener('click', async () => {
+  const host = hostOf(activeTab?.url);
+  const accepted = (await chrome.storage.local.get('multiPageAccepted')).multiPageAccepted || {};
+  await chrome.storage.local.set({ multiPageAccepted: { ...accepted, [host]: new Date().toISOString() } });
+  multiWarning.hidden = true;
+  captureBtn.hidden = false;
+  captureManyPages();
+});
+document.getElementById('multi-cancel').addEventListener('click', () => {
+  multiWarning.hidden = true;
+  captureBtn.hidden = false;
+});
+
+async function readPage() {
   try {
-    res = await readContactsFromTab();
+    const res = await readContactsFromTab();
+    if (!res?.ok) return { error: res?.error || 'no answer from the page' };
+    return res;
   } catch (e) {
-    captureMsg.textContent = `Couldn't read this page (${e?.message || e}). Reload the tab and try again.`;
+    return { error: String(e?.message || e) };
+  }
+}
+
+async function captureOnePage() {
+  captureMsg.textContent = 'Reading this page…';
+  const res = await readPage();
+  if (res.error) {
+    captureMsg.textContent = `Couldn't read this page (${res.error}). Reload the tab and try again.`;
     return;
   }
-  if (!res?.ok) {
-    captureMsg.textContent = `Couldn't read this page${res?.error ? ` (${res.error})` : ''}.`;
+  if (res.blocked) {
+    captureMsg.textContent = res.blocked === 'captcha'
+      ? 'This page is showing a security check. Complete it yourself, then try again.'
+      : 'This page wants you to sign in first.';
     return;
   }
   if (!res.contacts.length) {
@@ -476,20 +522,106 @@ document.getElementById('capture-btn').addEventListener('click', async () => {
     captured = null;
     return;
   }
-  captured = {
-    site: res.site,
-    url: res.url,
-    contacts: res.contacts.map((c) => ({ ...c, include: c.confidence !== 'low' }))
-  };
+  await showCaptured(res.site, res.url, res.contacts, '');
+}
+
+async function showCaptured(site, url, contacts, note) {
+  captured = { site, url, contacts: contacts.map((c) => ({ ...c, include: c.confidence !== 'low' })) };
   const groups = (await chrome.storage.local.get('captureSourceGroups')).captureSourceGroups || {};
-  captureSource.value = groups[res.site] || '';
-  document.getElementById('capture-source-hint').textContent = `Remembered for ${res.site}.`;
+  captureSource.value = groups[site] || '';
+  document.getElementById('capture-source-hint').textContent = `Remembered for ${site}.`;
   const flagged = captured.contacts.filter((c) => !c.include).length;
-  captureMsg.textContent = `Found ${res.contacts.length} ${res.contacts.length === 1 ? 'person' : 'people'}` +
+  captureMsg.textContent = (note ? `${note} ` : '') + `Found ${contacts.length} ${contacts.length === 1 ? 'person' : 'people'}` +
     (flagged ? ` · ${flagged} flagged and left unticked, so check them first` : '') + '.';
   renderCaptureRows();
   captureReview.hidden = false;
+}
+
+// Same person on two pages (or the same page read twice after a scroll).
+const contactKey = (c) => c.linkedinUrl || c.profileUrl || `${(c.name || '').toLowerCase()}|${c.companyKey || ''}`;
+
+// Random 4–10 s between pages, so it browses at a human pace. A function so tests can shorten it.
+function pageDelayMs() {
+  return 4000 + Math.floor(Math.random() * 6000);
+}
+
+let stopRequested = false;
+stopBtn.addEventListener('click', () => {
+  stopRequested = true;
+  stopBtn.disabled = true;
+  stopBtn.textContent = 'Stopping…';
 });
+
+// Waits in small steps so Stop takes effect straight away.
+async function waitUnlessStopped(ms) {
+  const end = Date.now() + ms;
+  while (Date.now() < end && !stopRequested) await new Promise((r) => setTimeout(r, Math.min(200, end - Date.now())));
+}
+
+// Steps through the directory in the tab it started in only, by the site's own Next button
+// or by scrolling. Stops on: the cap, Stop, a page with nothing new, a login wall or CAPTCHA,
+// no way forward, or the user switching tab / leaving the site. Whatever was read so far is
+// kept for review either way.
+async function captureManyPages() {
+  const tabId = activeTab.id;
+  const host = hostOf(activeTab.url);
+  const cap = Math.min(MAX_PAGES, Math.max(2, Number(multiPages.value) || 5));
+  multiPages.value = cap;
+  const found = new Map();
+  let site = host;
+  let url = activeTab.url;
+  let reason = '';
+  let pages = 0;
+  stopRequested = false;
+  captureBtn.hidden = true;
+  stopBtn.hidden = false;
+  stopBtn.disabled = false;
+  stopBtn.textContent = 'Stop';
+  captureReview.hidden = true;
+
+  try {
+    while (pages < cap) {
+      if (activeTab?.id !== tabId) { reason = 'you switched tabs'; break; }
+      const res = await readPage();
+      if (res.error) { reason = `the page couldn't be read (${res.error})`; break; }
+      if (res.blocked) { reason = res.blocked === 'captcha' ? 'the site showed a security check' : 'the site asked you to sign in'; break; }
+      if (hostOf(res.url) !== host) { reason = 'the tab left this site'; break; }
+      site = res.site;
+      url = res.url;
+      pages += 1;
+      let added = 0;
+      for (const c of res.contacts) {
+        const key = contactKey(c);
+        if (!found.has(key)) { found.set(key, c); added += 1; }
+      }
+      captureMsg.textContent = `Page ${pages} of up to ${cap}: ${found.size} people so far…`;
+      if (!added) { reason = 'a page had no new people'; break; }
+      if (pages >= cap) { reason = `reached the ${cap}-page limit`; break; }
+      if (stopRequested) { reason = 'you stopped it'; break; }
+
+      let next;
+      try {
+        next = await chrome.tabs.sendMessage(tabId, { type: 'BC_NEXT_PAGE' });
+      } catch (_) {
+        next = null;
+      }
+      if (!next?.how) { reason = 'there was no next page'; break; }
+      await waitUnlessStopped(pageDelayMs());
+      if (stopRequested) { reason = 'you stopped it'; break; }
+    }
+  } finally {
+    stopBtn.hidden = true;
+    captureBtn.hidden = false;
+  }
+
+  const note = `Stopped after ${pages} page${pages === 1 ? '' : 's'}${reason ? ` because ${reason}` : ''}.`;
+  if (!found.size) {
+    captureMsg.textContent = `${note} No people found.`;
+    captured = null;
+    return;
+  }
+  await showCaptured(site, url, [...found.values()], note);
+}
 
 function renderCaptureRows() {
   const list = document.getElementById('capture-rows');

@@ -343,11 +343,64 @@
     return { source: 'generic', contacts: readGeneric(doc) };
   }
 
+  // ---- Multi-page capture helpers (only ever driven by the side panel, opt-in) ---------
+
+  // A login wall or a bot check means stop, never push through.
+  function pageBlocker(doc = document) {
+    const text = clean(doc.body ? doc.body.textContent : '').slice(0, 5000).toLowerCase();
+    if (doc.querySelector('iframe[src*="captcha"], iframe[src*="challenges.cloudflare"], .g-recaptcha, .h-captcha, #captcha, [id*="captcha" i]') ||
+        /verify (that )?you('| a)re (a )?human|are you a robot|security check|unusual (activity|traffic)|complete the captcha/.test(text)) {
+      return 'captcha';
+    }
+    const password = doc.querySelector('input[type="password"]');
+    if (password && !findCardGroups(doc).length) return 'login';
+    if (/^(sign in|log in|login)\b/.test(clean(doc.title).toLowerCase())) return 'login';
+    return null;
+  }
+
+  const NEXT_TEXT = /^(next|next page|show more( results)?|load more( results)?|more results|›|»|→|>)$/i;
+  // The site's own "Next" control: rel=next, aria-label "Next", or a button/link that says
+  // Next. Never a profile link. Disabled controls mean the last page.
+  function findNextControl(doc = document) {
+    const candidates = [...doc.querySelectorAll('a[rel="next"], a, button, [role="button"]')];
+    return candidates.find((el) => {
+      if (el.closest('nav[aria-label*="breadcrumb" i]')) return false;
+      if (el.disabled || el.getAttribute('aria-disabled') === 'true' || /\bdisabled\b/.test(el.className || '')) return false;
+      const label = clean(el.getAttribute('aria-label') || '');
+      const text = clean(textLines(el).join(' '));
+      return el.getAttribute('rel') === 'next' || NEXT_TEXT.test(text) || /^next( page)?$/i.test(label);
+    }) || null;
+  }
+
+  // Moves to the next page in this tab: clicks the site's Next control, or scrolls an
+  // infinite list to the bottom. Reports which, so the panel can stop when neither works.
+  function goToNextPage(doc = document) {
+    const next = findNextControl(doc);
+    if (next) {
+      next.scrollIntoView?.({ block: 'center' });
+      next.click();
+      return 'click';
+    }
+    const before = doc.documentElement.scrollHeight;
+    const atBottom = window.scrollY + window.innerHeight >= before - 4;
+    if (!atBottom) {
+      window.scrollTo(0, before);
+      return 'scroll';
+    }
+    return null;
+  }
+
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    if (message.type !== 'BC_READ_CONTACTS' || !isCurrent()) return false;
+    if (!isCurrent()) return false;
+    if (message.type === 'BC_NEXT_PAGE') {
+      sendResponse({ ok: true, how: goToNextPage() });
+      return false;
+    }
+    if (message.type !== 'BC_READ_CONTACTS') return false;
     try {
-      const { source, contacts } = readContacts();
-      sendResponse({ ok: true, url: location.href, site: location.hostname, title: document.title, source, contacts });
+      const blocked = pageBlocker();
+      const { source, contacts } = blocked ? { source: 'blocked', contacts: [] } : readContacts();
+      sendResponse({ ok: true, url: location.href, site: location.hostname, title: document.title, source, contacts, blocked });
     } catch (e) {
       console.error('[BC] contact reader threw', e);
       sendResponse({ ok: false, error: String(e && e.message || e) });
@@ -355,5 +408,5 @@
     return false;
   });
 
-  window.BC_ContactReader = { readContacts, readGeneric, readCard, isNameLike, splitTitleCompany, textLines, registerAdapter };
+  window.BC_ContactReader = { readContacts, readGeneric, pageBlocker, findNextControl, goToNextPage, readCard, isNameLike, splitTitleCompany, textLines, registerAdapter };
 })();
