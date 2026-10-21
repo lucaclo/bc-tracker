@@ -75,7 +75,7 @@ test('Capture contacts shows a preview; flagged rows start unticked with the rea
   await p.ready;
   document.getElementById('capture-btn').click();
   await waitFor(() => !document.getElementById('capture-review').hidden);
-  assert.deepEqual(JSON.parse(JSON.stringify(p.injected[0])), ['lib/companyMatch.js', 'content/contact-reader.js']);
+  assert.deepEqual(JSON.parse(JSON.stringify(p.injected[0])), ['lib/companyMatch.js', 'lib/contactAdapters/linkedin.js', 'content/contact-reader.js']);
   const list = rows(document);
   assert.equal(list.length, 3);
   assert.deepEqual(list.map((li) => li.querySelector('input[type=checkbox]').checked), [true, true, false]);
